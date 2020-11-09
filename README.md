@@ -41,9 +41,9 @@ thetas = prior(num_samples=100)
 xs = simulator(thetas)
 ```
 
-`xs` is a `torch.Tensor` with shape `(100, 8)`. Note that if required, conversion to and from `torch.Tensor` is very easy: Convert to a numpy array using `.numpy()`, e.g., `xs.numpy()`. For the reverse, use `torch.from_numpy()` on a numpy array.
+`xs` is a `torch.Tensor` with shape `(100, 8)`, since for SLCP parameters as 8 dimensional. Note that if required, conversion to and from `torch.Tensor` is very easy: Convert to a numpy array using `.numpy()`, e.g., `xs.numpy()`. For the reverse, use `torch.from_numpy()` on a numpy array.
 
-Some algorithms might require evaluating the pdf of the prior distribution, which can be obtained as a [`torch.Distribution` instance](https://pytorch.org/docs/stable/distributions.html) using `task.get_prior_dist()`. It exposes a `log_prob` and `sample` methods. The parameters of the prior can be picked up as a dictionary as parameters using `task.get_prior_params()`.
+Some algorithms might require evaluating the pdf of the prior distribution, which can be obtained as a [`torch.Distribution` instance](https://pytorch.org/docs/stable/distributions.html) using `task.get_prior_dist()`, which exposes `log_prob` and `sample` methods. The parameters of the prior can be picked up as a dictionary as parameters using `task.get_prior_params()`.
 
 For each task, the benchmark contains 10 observations and respective reference posteriors samples. To fetch the first observation and respective reference posterior samples:
 ```python
@@ -64,39 +64,39 @@ task.name_display           # name_display: SLCP
 Finally, if you want to have a look at the source code of the task, take a look in `sbibm/tasks/slcp/task.py`. If you wanted to implement a new task, we would recommend modelling them after existing ones. You will see that each task has a private `_setup` method that was used to generate the reference posterior samples. 
 
 
+## Algorithms
+
+As mentioned in the intro, `sbibm` wraps a number of third-party packages to run various algorithms. We found it easiest to give each algorithm the same interface: In general, each algorithm specifies a `run` function that gets `task` and hyperparameters as arguments, and eventually returns the required `num_posterior_samples`. That way, one can simply import the run function of an algorithm, tun it on any given task, and return metrics on the returned samples.
+
+
 ## Metrics
 
-In order to compare algorithms on the benchmarks, a number of different metrics can be computed. Each task comes with reference samples (for each observation $x_o^{(N)}$). Depending on the benchmark, these are either obtained by making use of an analytic solution for the posterior or a customized likelihood-based approach.
+In order to compare algorithms on the benchmarks, a number of different metrics can be computed. Each task comes with reference samples for each observation. Depending on the benchmark, these are either obtained by making use of an analytic solution for the posterior or a customized likelihood-based approach.
 
 A number of metrics can be computed by comparing algorithm samples to reference samples. In order to do so, a number of different two-sample tests can be computed (see `sbibm/metrics`). These test follow a simple interface, just requiring to pass samples from reference and algorithm.
 
-For example:
+For example, in order to compute C2ST:
 ```python
 import torch
 from sbibm.metrics.c2st import c2st
+from sbibm.algorithms.mcabc import run as run_rej_abc
 
 reference_samples = task.get_reference_posterior_samples(num_observation=1)
-algorithm_samples = torch.randn(10000,10)
+algorithm_samples = run_rej_abc(task=task, num_samples=10_000, num_simulation=100_000, num_observation=1)
 c2st_accuracy = c2st(reference_samples, algorithm_samples)
-
-# For more info see help(c2st)
 ```
 
-## Algorithms
-
-As mentioned in the intro, `sbibm` wraps a number of third-party packages to run various algorithms. We found it easiest to give each algorithm the same interface, i.e., if you look in algorithms subfolder, typically compute number of samples, given hyperparameters. That way, one can simply import the run function, specify hyperparameters, and get samples back for which hyperparameters can be computed.
+For more info, see `help(c2st)`.
 
 
 ## Experiments
 
-...
+As mentioned above, we host the code for reproducing the experiments of the manuscript in a seperate repository at [github.com/sbi-benchmark/benchmarking_sbi](https://github.com/sbi-benchmark/benchmarking_sbi). Besides the pipeline to reproduce the manuscripts' experiments, full results including dataframes for quick comparisons are provided.
 
 
-## Comments and issues
+## Questions, Comments, Contributions
 
-For any pro
-
- [issues on GitHub](https://github.com/sbi-benchmark/sbibm/issues) for any problems you encounter or feel free to reach out via email
+If you have questions or comments, please do not hesitate [to contact us](mailto:mail@jan-matthis.de) or [open an issue](https://github.com/sbi-benchmark/sbibm/issues). We would be very glad [about contributions](CONTRIBUTE.md), e.g., new tasks, novel metrics, or wrappers for other SBI toolboxes.
 
 
 ## Citation
@@ -111,6 +111,7 @@ Please cite [our manuscript]() when using `sbibm`:
   journal = {arXiv preprint},
 }
 ```
+
 
 ## License
 

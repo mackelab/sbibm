@@ -73,7 +73,7 @@ def test_fssd():
 
 def test_fssd_opt():
     """Test FSSD with optimized test locations
-    
+
     Following the example in:
     https://github.com/wittawatj/kernel-gof/blob/master/ipynb/demo_kgof.ipynb
     """

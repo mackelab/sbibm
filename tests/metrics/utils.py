@@ -1,16 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from sklearn.utils import check_random_state
-
 from sbi.utils.plot import pairplot
+from sklearn.utils import check_random_state
 
 
 def sample_blobs_same(
     n: int, rows: int = 3, cols: int = 3, sep: int = 1, rs: int = None
 ) -> (torch.Tensor, torch.Tensor):
     """Generate same blobs for testing type-I error
-    
+
     Source: https://github.com/fengliu90/DK-for-TST
     """
     rs = check_random_state(rs)
@@ -36,10 +35,13 @@ def sample_blobs_same(
 
 
 def sample_blobs_different(
-    n: int, rows: int = 3, cols: int = 3, rs: int = None,
+    n: int,
+    rows: int = 3,
+    cols: int = 3,
+    rs: int = None,
 ) -> (torch.Tensor, torch.Tensor):
     """Generate different blobs for testing type-II error (test power)
-    
+
     Source: https://github.com/fengliu90/DK-for-TST
     """
     rs = check_random_state(rs)

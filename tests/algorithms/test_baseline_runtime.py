@@ -7,10 +7,13 @@ from sbibm.metrics.c2st import c2st
 
 
 @pytest.mark.parametrize(
-    "task_name", [(task_name) for task_name in ["gaussian_linear"]],
+    "task_name",
+    [(task_name) for task_name in ["gaussian_linear"]],
 )
 def test_runtime(
-    task_name, num_observation=1, num_samples=1000,
+    task_name,
+    num_observation=1,
+    num_samples=1000,
 ):
     task = sbibm.get_task(task_name)
 

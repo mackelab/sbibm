@@ -1,8 +1,8 @@
 import torch
+from sbi.utils.plot import pairplot
 
 import sbibm
 from sbibm.utils.kde import get_kde
-from sbi.utils.plot import pairplot
 
 
 def test_kde_transform_log_prob_visual(plt):

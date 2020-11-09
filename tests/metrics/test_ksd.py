@@ -19,8 +19,8 @@ import sbibm
 
 
 def test_ksd():
-    """Test quadratic time KSD 
-    
+    """Test quadratic time KSD
+
     Following the example in:
     https://github.com/wittawatj/kernel-gof/blob/master/ipynb/gof_kernel_stein.ipynb
     """

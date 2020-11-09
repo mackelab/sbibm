@@ -1,11 +1,11 @@
 import pytest
 import torch
+from sbi.utils.plot import pairplot
 
 import sbibm
 from sbibm.algorithms.pytorch.baseline_sir import run
 from sbibm.algorithms.pytorch.utils.proposal import get_proposal
 from sbibm.metrics.c2st import c2st
-from sbi.utils.plot import pairplot
 
 
 @pytest.mark.parametrize(
@@ -13,7 +13,10 @@ from sbi.utils.plot import pairplot
     [(task_name) for task_name in ["gaussian_linear", "gaussian_linear_uniform"]],
 )
 def test_sir(
-    task_name, num_observation=1, num_samples=10000, num_simulations=1_00_000_000,
+    task_name,
+    num_observation=1,
+    num_samples=10000,
+    num_simulations=1_00_000_000,
 ):
     task = sbibm.get_task(task_name)
 

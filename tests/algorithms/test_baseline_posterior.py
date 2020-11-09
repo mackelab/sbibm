@@ -19,12 +19,16 @@ from sbibm.metrics.c2st import c2st
     ],
 )
 def test_posterior(
-    task_name, num_observation, num_samples=10000,
+    task_name,
+    num_observation,
+    num_samples=10000,
 ):
     task = sbibm.get_task(task_name)
 
     samples = run_posterior(
-        task=task, num_observation=num_observation, num_samples=num_samples,
+        task=task,
+        num_observation=num_observation,
+        num_samples=num_samples,
     )
 
     reference_samples = task.get_reference_posterior_samples(

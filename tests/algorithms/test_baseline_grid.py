@@ -7,7 +7,8 @@ from sbibm.metrics.c2st import c2st
 
 
 @pytest.mark.parametrize(
-    "task_name", [(task_name) for task_name in ["gaussian_linear_uniform"]],
+    "task_name",
+    [(task_name) for task_name in ["gaussian_linear_uniform"]],
 )
 def test_grid(
     task_name, num_observation=1, num_samples=1000, num_simulations=100_000_000

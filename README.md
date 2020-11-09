@@ -2,7 +2,7 @@
 
 # Benchmarking simulation-based inference
 
-This repository contains a simulation-based inference benchmark, `sbibm`, which we describe in the [associated manuscript "Benchmarking Simulation-based Inference"](https://github.com/mackelab/sbibm#Citation). The benchmark framework includes tasks, reference posteriors, metrics, plotting, and integrations with SBI toolboxes ([`sbi`](https://www.mackelab.org/sbi/), [`pyabc`](https://pyabc.readthedocs.io), [`pyabcranger`](https://github.com/diyabc/abcranger), and an experimental integration with [`elfi`](https://github.com/diyabc/abcranger)). The framework is designed to be highly extensible and easily used in new research projects: For each benchmark task, prior, simulator, and reference posteriors are exposed, so that `sbibm` can be used easily in research code, as we demonstrate below. 
+This repository contains a simulation-based inference benchmark, `sbibm`, which we describe in the [associated manuscript "Benchmarking Simulation-based Inference"](https://github.com/mackelab/sbibm#Citation). The benchmark framework includes tasks, reference posteriors, metrics, plotting, and integrations with SBI toolboxes. The framework is designed to be highly extensible and easily used in new research projects: For each benchmark task, prior, simulator, and reference posteriors are exposed, so that `sbibm` can be used easily in research code, as we demonstrate below. 
 
 In order to emphasize that `sbibm` can be used independently of any particular analysis pipeline, we split the code for reproducing the experiments of the manuscript into a seperate repository hosted at [github.com/sbi-benchmark/benchmarking_sbi](https://github.com/sbi-benchmark/benchmarking_sbi). Besides the pipeline to reproduce the manuscripts' experiments, full results including dataframes for quick comparisons are hosted in that repository.
 
@@ -66,7 +66,7 @@ Finally, if you want to have a look at the source code of the task, take a look 
 
 ## Algorithms
 
-As mentioned in the intro, `sbibm` wraps a number of third-party packages to run various algorithms. We found it easiest to give each algorithm the same interface: In general, each algorithm specifies a `run` function that gets `task` and hyperparameters as arguments, and eventually returns the required `num_posterior_samples`. That way, one can simply import the run function of an algorithm, tun it on any given task, and return metrics on the returned samples.
+As mentioned in the intro, `sbibm` wraps a number of third-party packages to run various algorithms. We found it easiest to give each algorithm the same interface: In general, each algorithm specifies a `run` function that gets `task` and hyperparameters as arguments, and eventually returns the required `num_posterior_samples`. That way, one can simply import the run function of an algorithm, tun it on any given task, and return metrics on the returned samples. Wrappers for external toolboxes implementing algorithms are in the subfolder `sbibm/algorithms`. Currently, integrations with ([`sbi`](https://www.mackelab.org/sbi/), [`pyabc`](https://pyabc.readthedocs.io), [`pyabcranger`](https://github.com/diyabc/abcranger), as well as an experimental integration with [`elfi`](https://github.com/diyabc/abcranger)) are provided.
 
 
 ## Metrics

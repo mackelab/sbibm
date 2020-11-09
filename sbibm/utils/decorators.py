@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-
 def lazy_property(fn):
     # Decorator that makes a property lazy-evaluated
     attr_name = "_lazy_" + fn.__name__

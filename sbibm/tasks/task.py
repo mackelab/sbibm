@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union

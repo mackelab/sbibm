@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from matplotlib import pyplot as plt
 
 from sbibm.utils.tensorboard import tb_plot_posterior

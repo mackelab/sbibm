@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from torch.distributions.transformed_distribution import TransformedDistribution
 
 from sbibm.utils.nflows import FlowWrapper

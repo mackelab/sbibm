@@ -1,181 +1,11 @@
-from __future__ import annotations
-
-from math import exp, log  # noqa
 from typing import Any, Dict, List, Optional
 
 import altair as alt
 import deneb as den
-import pandas as pd
-from deneb.utils import save
 
 import sbibm
 from sbibm.utils.io import get_ndarray_from_csv
 from sbibm.utils.torch import sample
-from sbibm.visualisation.colors import COLORS_RGB_STR
-
-
-def fig_correlation(
-    df: pd.DataFrame,
-    metrics: List[str] = ["C2ST", "MMD", "KSD", "MEDDIST"],
-    config: str = "manuscript",
-    title: Optional[str] = None,
-    title_dx: int = 0,
-    width: Optional[int] = None,
-    height: Optional[int] = None,
-    keywords: Dict[str, Any] = {},
-    style: Dict[str, Any] = {},
-):
-    keywords["sparse"] = True
-    keywords["limits"] = [0.0, 1.0]
-    keywords["font_size"] = 14
-    keywords["rotate_outwards"] = True
-
-    if config == "manuscript":
-        style["font_family"] = "Inter"
-        keywords["width"] = 200 if width is None else width
-        keywords["height"] = 200 if height is None else height
-
-    if config == "streamlit":
-        keywords["width"] = None if width is None else width
-        keywords["height"] = None if height is None else height
-
-    alt.themes.enable("default")
-
-    den.set_style(
-        extra={
-            "config": {
-                "axisX": {
-                    "domain": False,
-                    "domainWidth": 0,
-                    "ticks": False,
-                    "tickWidth": 0,
-                    "grid": False,
-                },
-                "axisY": {
-                    "domain": False,
-                    "domainWidth": 0,
-                    "ticks": False,
-                    "tickWidth": 0,
-                    "grid": False,
-                },
-            }
-        },
-        **style,
-    )
-
-    chart = den.correlation_matrix(df, metrics=metrics, **keywords)
-
-    if title is not None:
-        chart = chart.properties(title={"text": [title],}).configure_title(
-            fontSize=12, offset=10, orient="top", anchor="middle", dx=title_dx
-        )
-
-    if config == "manuscript":
-        chart = chart.configure_text(font="Inter")
-
-    return chart
-
-
-def fig_metric(
-    df: pd.DataFrame,
-    metric: str,
-    config: str = "manuscript",
-    title: Optional[str] = None,
-    title_dx: int = 0,
-    width: Optional[int] = None,
-    height: Optional[int] = None,
-    labels: bool = True,
-    keywords: Dict[str, Any] = {},
-    style: Dict[str, Any] = {},
-    default_color: str = "#000000",
-):
-    colors = COLORS_RGB_STR
-    for algorithm in df.algorithm.unique():
-        algorithm_first = algorithm.split("_")[-1].split("-")[0]
-        if algorithm_first not in colors:
-            colors[algorithm] = default_color
-        else:
-            colors[algorithm] = colors[algorithm_first]
-
-    keywords["column_labels"] = labels
-    keywords["color"] = den.colorscale(colors, shorthand="algorithm:N")
-
-    if config == "manuscript":
-        keywords["width"] = 700 / len(df.algorithm.unique()) if width is None else width
-        keywords["height"] = 60 if height is None else height
-        style["font_family"] = "Inter"
-
-    if config == "streamlit":
-        keywords["width"] = None if width is None else width
-        keywords["height"] = None if height is None else height
-        style["font_family"] = "Inter"
-        style["font_size"] = 16
-        style["font_size_label"] = 16
-        style["font_size_title"] = 16
-
-    if metric == "MMD":
-        keywords["y_axis"] = alt.Axis(title="MMD²")
-
-    if metric == "C2ST":
-        keywords["limits"] = [0.5, 1.0]
-
-    if metric == "RT":
-        keywords["log_y"] = True
-        keywords["limits"] = [0.001, 1000.0]
-        keywords["y_axis"] = alt.Axis(
-            values=[0.001, 0.01, 0.1, 0.0, 1.0, 10.0, 100.0, 1000.0]
-        )
-
-    alt.themes.enable("default")
-
-    den.set_style(
-        extra={
-            "config": {
-                "axisX": {
-                    "grid": False,
-                    "labelAngle": 270,
-                    "domain": False,
-                    "domainWidth": 0,
-                    "ticks": True,
-                    "tickWidth": 0,
-                    "minExtent": 0,
-                },
-                "axisY": {
-                    "domain": False,
-                    "domainWidth": 0,
-                    "ticks": True,
-                    "tickWidth": 0,
-                    "grid": True,
-                    "titlePadding": 0,
-                    # "titleX": 10,
-                    "tickCount": 5.0,
-                },
-            }
-        },
-        **style,
-    )
-
-    chart = den.lineplot(
-        df,
-        x="num_simulations:O",
-        y=f"{metric}:Q",
-        error_extent="ci",
-        column="algorithm:N",
-        independent_y=False,
-        row_title="",
-        column_title="Number of Simulations",
-        title_orient="bottom",
-        **keywords,
-    )
-
-    chart = chart.configure_point(size=50).configure_line(size=1.5)
-
-    if title is not None:
-        chart = chart.properties(title={"text": [title],}).configure_title(
-            fontSize=12, offset=10, orient="top", anchor="middle", dx=title_dx
-        )
-
-    return chart
 
 
 def fig_posterior(
@@ -195,6 +25,8 @@ def fig_posterior(
     config: str = "manuscript",
     width: Optional[int] = None,
     height: Optional[int] = None,
+    default_color: str = "#000000",
+    colors_dict: Dict[str, Any] = {},
     **kwargs: Any,
 ):
     # Samples to plot
@@ -222,7 +54,7 @@ def fig_posterior(
         )
         samples.append(samples_reference)
         labels_samples.append(sample_name)
-        colors[sample_name] = "#888888"
+        colors[sample_name] = "#888"
 
     if true_parameter:
         sample_name = "True parameter"
@@ -246,10 +78,10 @@ def fig_posterior(
         if samples_color is not None:
             colors[sample_name] = samples_color
         else:
-            if sample_name in COLORS_RGB_STR:
-                colors[sample_name] = COLORS_RGB_STR[samples_name]
+            if sample_name in colors_dict:
+                colors[sample_name] = colors_dict[samples_name]
             else:
-                colors[sample_name] = "#888"
+                colors[sample_name] = default_color
 
     if len(samples) == 0:
         return None

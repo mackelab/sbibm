@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-
 def estimparam_args(i, num_samples, ntrees, nthreads=1):
     return " ".join(
         [

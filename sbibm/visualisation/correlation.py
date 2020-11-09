@@ -1,17 +1,8 @@
-from __future__ import annotations
-
-from math import exp, log  # noqa
 from typing import Any, Dict, List, Optional
 
 import altair as alt
 import deneb as den
 import pandas as pd
-from deneb.utils import save
-
-import sbibm
-from sbibm.utils.io import get_ndarray_from_csv
-from sbibm.utils.torch import sample
-from sbibm.visualisation.colors import COLORS_RGB_STR
 
 
 def fig_correlation(

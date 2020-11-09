@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from sbibm.metrics.c2st import c2st  # noqa: F401
 from sbibm.metrics.ksd import ksd_gaussian_kernel_interface  # noqa: F401
 from sbibm.metrics.mmd import mmd_gaussian_kernel  # noqa: F401

@@ -111,7 +111,7 @@ class Task:
             self.path
             / "files"
             / f"num_observation_{num_observation}"
-            / "reference_posterior_samples.csv"
+            / "reference_posterior_samples.csv.bz2"
         )
         return get_tensor_from_csv(path)
 
@@ -409,7 +409,7 @@ class Task:
             self.path
             / "files"
             / f"num_observation_{num_observation}"
-            / "reference_posterior_samples.csv"
+            / "reference_posterior_samples.csv.bz2"
         )
         path.parent.mkdir(parents=True, exist_ok=True)
         self.save_parameters(path, reference_posterior_samples)

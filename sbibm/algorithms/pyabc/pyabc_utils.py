@@ -4,7 +4,6 @@ import logging
 from typing import Callable, Dict
 
 import numpy as np
-
 import pyabc
 import torch
 
@@ -17,20 +16,23 @@ class PyAbcSimulator:
     and uses the sbibm task simulator to generate the corresponding data and to return
     it in pyABC format. 
     """
+
     def __init__(self, task):
         self.simulator = task.get_simulator()
         self.dim_parameters = task.dim_parameters
         self.name = task.name
 
     def __call__(self, pyabc_parameter) -> Dict:
-        parameters = torch.tensor([[pyabc_parameter[f"param{dim+1}"] for dim in range(self.dim_parameters)]], dtype=torch.float32)
+        parameters = torch.tensor(
+            [[pyabc_parameter[f"param{dim+1}"] for dim in range(self.dim_parameters)]],
+            dtype=torch.float32,
+        )
         data = self.simulator(parameters).numpy().squeeze()
         return dict(data=data)
 
     @property
     def __name__(self) -> str:
         return self.name
-
 
 
 def wrap_prior(task):
@@ -64,19 +66,19 @@ def wrap_prior(task):
 
             prior_dict[f"param{dim+1}"] = pyabc.RV("norm", loc, scale)
         prior = pyabc.Distribution(**prior_dict)
-    
+
     elif "LogNormal" in prior_cls:
         # Note the difference in parameterisation between pytorch LogNormal and scipy
-        # lognorm: 
+        # lognorm:
         # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.lognorm.html#scipy.stats.lognorm
         prior_params["s"] = task.prior_params["scale"].numpy()
         prior_params["scale"] = np.exp(task.prior_params["loc"].numpy())
 
         prior_dict = {}
         for dim in range(task.dim_parameters):
-            prior_dict[f"param{dim+1}"] = pyabc.RV("lognorm", 
-                                                    s=prior_params["s"][dim],
-                                                    scale=prior_params["scale"][dim])
+            prior_dict[f"param{dim+1}"] = pyabc.RV(
+                "lognorm", s=prior_params["s"][dim], scale=prior_params["scale"][dim]
+            )
 
         prior = pyabc.Distribution(**prior_dict)
 
@@ -113,11 +115,11 @@ def get_distance(distance: str) -> Callable:
 
         def distance_fun(x, y):
             return np.mean((x["data"] - y["data"]) ** 2, axis=-1)
-    
+
     elif distance == "l2":
 
         def distance_fun(x, y):
-            sq_diff = (x["data"] - y["data"])**2
+            sq_diff = (x["data"] - y["data"]) ** 2
             return np.atleast_1d(sq_diff).mean(axis=-1)
 
     else:

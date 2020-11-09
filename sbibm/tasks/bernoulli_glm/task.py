@@ -10,8 +10,8 @@ import torch
 
 from sbibm.tasks.simulator import Simulator
 from sbibm.tasks.task import Task
-from sbibm.utils.torch import get_default_device
 from sbibm.utils.io import get_tensor_from_csv
+from sbibm.utils.torch import get_default_device
 
 
 class BernoulliGLM(Task):

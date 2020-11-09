@@ -3,7 +3,6 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
-
 import torch
 from torch.distributions import Multinomial
 

@@ -3,16 +3,16 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
-import torch
-
-import sbibm
 import pyabcranger
-from sbibm.tasks.task import Task
-from sbibm.utils.torch import sample_with_weights
+import torch
+from sbi.simulators.simutils import simulate_in_batches
 from tqdm import tqdm
 
+import sbibm
+from sbibm.tasks.task import Task
+from sbibm.utils.torch import sample_with_weights
+
 from .abcranger_utils import estimparam_args
-from sbi.simulators.simutils import simulate_in_batches
 
 
 def run(

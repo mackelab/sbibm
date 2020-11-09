@@ -13,4 +13,3 @@ def estimparam_args(i, num_samples, ntrees, nthreads=1):
             "-j " + str(nthreads),
         ]
     )
-

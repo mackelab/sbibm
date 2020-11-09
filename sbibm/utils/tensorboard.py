@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import Callable
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
-
 from sbi.utils.plot import pairplot
+from torch.utils.tensorboard import SummaryWriter
 
 
 def tb_plot_posterior(

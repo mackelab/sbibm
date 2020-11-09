@@ -148,8 +148,16 @@ class SIR(Task):
                 us.append(u.reshape(1, 3, -1))
             us = torch.cat(us).float()  # num_parameters x 3 x (days/saveat + 1)
 
-            idx_contains_nan = torch.where(torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
-            idx_contains_no_nan = torch.where(~torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
+            idx_contains_nan = torch.where(
+                torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
+            )[
+                0
+            ]  # noqa
+            idx_contains_no_nan = torch.where(
+                ~torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
+            )[
+                0
+            ]  # noqa
 
             if self.summary is None:
                 return us
@@ -158,7 +166,7 @@ class SIR(Task):
                 data = float("nan") * torch.ones((num_samples, self.dim_data))
                 if len(idx_contains_nan) == num_samples:
                     return data
-                
+
                 us = us[:, 1, ::17].reshape(num_samples, -1)  # Only use I population
                 data[idx_contains_no_nan, :] = pyro.sample(
                     "data",
@@ -242,6 +250,7 @@ class SIR(Task):
         )
 
         return samples
+
 
 if __name__ == "__main__":
     task = SIR()

@@ -146,8 +146,16 @@ class LotkaVolterra(Task):
                 us.append(u.reshape(1, 2, -1))
             us = torch.cat(us).float()  # num_parameters x 2 x (days/saveat + 1)
 
-            idx_contains_nan = torch.where(torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
-            idx_contains_no_nan = torch.where(~torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
+            idx_contains_nan = torch.where(
+                torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
+            )[
+                0
+            ]  # noqa
+            idx_contains_no_nan = torch.where(
+                ~torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
+            )[
+                0
+            ]  # noqa
 
             if self.summary is None:
                 return us

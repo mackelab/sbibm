@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 from sbi import inference as inference
 from sbi.inference.posteriors.likelihood_based_posterior import LikelihoodBasedPosterior
+from torch import Tensor
 
 from sbibm.algorithms.sbi.utils import (
     wrap_posterior,
@@ -15,8 +16,6 @@ from sbibm.algorithms.sbi.utils import (
     wrap_simulator_fn,
 )
 from sbibm.tasks.task import Task
-from torch import Tensor
-from typing import Optional
 
 
 class SynthLikNet(nn.Module):
@@ -129,4 +128,3 @@ def run(
     samples = posterior.sample((num_samples,)).detach()
 
     return samples, simulator.num_simulations, None
-

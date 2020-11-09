@@ -164,10 +164,20 @@ class SLCP(Task):
             Dict containing transforms
         """
         if not self.distractors:
-            return super()._get_transforms(automatic_transforms_enabled=automatic_transforms_enabled, num_observation=num_observation, observation=observation, **kwargs)
+            return super()._get_transforms(
+                automatic_transforms_enabled=automatic_transforms_enabled,
+                num_observation=num_observation,
+                observation=observation,
+                **kwargs,
+            )
         else:
             task = SLCP(distractors=False)
-            return task._get_transforms(automatic_transforms_enabled=automatic_transforms_enabled, num_observation=num_observation, observation=observation, **kwargs)
+            return task._get_transforms(
+                automatic_transforms_enabled=automatic_transforms_enabled,
+                num_observation=num_observation,
+                observation=observation,
+                **kwargs,
+            )
 
     def unflatten_data(self, data: torch.Tensor) -> torch.Tensor:
         """Unflattens data into multiple observations

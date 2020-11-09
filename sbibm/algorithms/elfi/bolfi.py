@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 import time
 from math import ceil
+from typing import Optional
 
 import elfi
 import numpy as np

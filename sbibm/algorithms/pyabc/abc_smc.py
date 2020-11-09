@@ -13,7 +13,7 @@ import sbibm
 from sbibm.tasks.task import Task
 from sbibm.utils.torch import sample_with_weights
 
-from .pyabc_utils import clip_int, get_distance, wrap_prior, PyAbcSimulator
+from .pyabc_utils import PyAbcSimulator, clip_int, get_distance, wrap_prior
 
 
 def run(

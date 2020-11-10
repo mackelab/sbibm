@@ -37,8 +37,9 @@ def fig_metric(
         config: Optional string to load predefined config
         style: Optional dictionary for `den.set_style`
         keywords: Optional dictionary passed on to `den.lineplot`
-        rej_abc_first: Trick to have REJ-ABC (if present as an algorithm) appears first
-            despite alphabetical sort order of columns. Can be removed once https://github.com/vega/vega-lite/issues/5366 is addressed.
+        rej_abc_first: Trick to have REJ-ABC (if present as an algorithm) appears 
+            first despite alphabetical sort order of columns. Can be removed once
+            https://github.com/vega/vega-lite/issues/5366 is addressed.
 
     Returns:
         Chart

@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 import altair as alt
 import deneb as den
+import torch
 
 import sbibm
 from sbibm.utils.io import get_ndarray_from_csv
@@ -16,6 +17,7 @@ def fig_posterior(
     reference: bool = True,
     true_parameter: bool = False,
     samples_path: Optional[str] = None,
+    samples_tensor: Optional[torch.Tensor] = None,
     samples_name: Optional[str] = None,
     samples_color: Optional[str] = None,
     title: Optional[str] = None,
@@ -30,6 +32,29 @@ def fig_posterior(
     **kwargs: Any,
 ):
     """Plots posteriors samples for given task
+
+    Args:
+        task_name: Name of the task to plot posteriors for
+        num_observation: Observation number
+        num_samples: Number of samples to use for plotting
+        prior: Whether or not to plot prior samples
+        reference: Whether or not to plot reference posterior samples
+        samples_path: If specified, will load samples from disk from path
+        samples_tensor: Instead of a path, samples can also be passed as torch.Tensor
+        samples_name: Name for samples, defaults to "Algorithm"
+        samples_color: Optional string for color of samples
+        title: Title for plot
+        title_dx: x-direction offset for title
+        legend: Whether to plot a legend
+        seed: Seed
+        config: Optional string to load predefined config
+        width: Width
+        height: Height
+        default_color: Default color of samples
+        colors_dict: Dictionary of colors
+
+    Returns:
+        Chart
     """
     # Samples to plot
     task = sbibm.get_task(task_name)
@@ -68,8 +93,11 @@ def fig_posterior(
         labels_samples.append(sample_name)
         colors[sample_name] = "#000"
 
-    if samples_path is not None:
-        samples_ = get_ndarray_from_csv(samples_path)
+    if samples_tensor is not None or samples_path is not None:
+        if samples_tensor is not None:
+            samples_ = samples_tensor.numpy()
+        else:
+            samples_ = get_ndarray_from_csv(samples_path)
         samples_algorithm = sample(samples_, num_samples, replace=False, seed=seed)
         samples.append(samples_algorithm)
         if samples_name is None:

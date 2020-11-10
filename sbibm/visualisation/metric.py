@@ -24,6 +24,11 @@ def fig_metric(
     Assumes that dataframe at least has columns "algorithm", "num_simulations" and
     a column titled accordingly to "metric".
     """
+    # Trick to have REJ-ABC appear first despite alphabetical sort order
+    # Can be removed when https://github.com/vega/vega-lite/issues/5366 is addressed
+    df = df.copy()
+    df.loc[df["algorithm"] == "REJ-ABC", "algorithm"] = " REJ-ABC"
+
     colors = {}
     for algorithm in df.algorithm.unique():
         algorithm_first = algorithm.split("_")[-1].split("-")[0].strip()
@@ -94,7 +99,7 @@ def fig_metric(
     )
 
     chart = den.lineplot(
-        df,
+        df.sort_values("algorithm"),
         x="num_simulations:O",
         y=f"{metric}:Q",
         error_extent="ci",

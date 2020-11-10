@@ -47,11 +47,11 @@ def fig_posterior(
         title_dx: x-direction offset for title
         legend: Whether to plot a legend
         seed: Seed
-        config: Optional string to load predefined config
         width: Width
         height: Height
         default_color: Default color of samples
         colors_dict: Dictionary of colors
+        config: Optional string to load predefined config
 
     Returns:
         Chart

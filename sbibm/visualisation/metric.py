@@ -8,7 +8,6 @@ import pandas as pd
 def fig_metric(
     df: pd.DataFrame,
     metric: str,
-    config: Optional[str] = None,
     title: Optional[str] = None,
     title_dx: int = 0,
     width: Optional[int] = None,
@@ -18,16 +17,35 @@ def fig_metric(
     style: Dict[str, Any] = {},
     default_color: str = "#000000",
     colors_dict: Dict[str, Any] = {},
+    rej_abc_first: bool = True,
+    config: Optional[str] = None,
 ):
     """Plots metrics
 
-    Assumes that dataframe at least has columns "algorithm", "num_simulations" and
-    a column titled accordingly to "metric".
+    Args:
+        df: Dataframe which at least has columns `algorithm`, `num_simulations` and
+            a column titled accordingly to `metric`. 
+        metric: Metric to plot, should be a column in `df`.
+        title: Title for plot
+        title_dx: x-direction offset for title
+        labels: Whether to plot labels
+        seed: Seed
+        width: Width
+        height: Height
+        default_color: Default color of samples
+        colors_dict: Dictionary of colors
+        config: Optional string to load predefined config
+        style: Optional dictionary for `den.set_style`
+        keywords: Optional dictionary passed on to `den.lineplot`
+        rej_abc_first: Trick to have REJ-ABC (if present as an algorithm) appears first
+            despite alphabetical sort order of columns. Can be removed once https://github.com/vega/vega-lite/issues/5366 is addressed.
+
+    Returns:
+        Chart
     """
-    # Trick to have REJ-ABC appear first despite alphabetical sort order
-    # Can be removed when https://github.com/vega/vega-lite/issues/5366 is addressed
-    df = df.copy()
-    df.loc[df["algorithm"] == "REJ-ABC", "algorithm"] = " REJ-ABC"
+    if rej_abc_first:
+        df = df.copy()
+        df.loc[df["algorithm"] == "REJ-ABC", "algorithm"] = " REJ-ABC"
 
     colors = {}
     for algorithm in df.algorithm.unique():

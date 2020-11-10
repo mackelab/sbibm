@@ -8,7 +8,7 @@ import pandas as pd
 def fig_metric(
     df: pd.DataFrame,
     metric: str,
-    config: str = "manuscript",
+    config: Optional[str] = None,
     title: Optional[str] = None,
     title_dx: int = 0,
     width: Optional[int] = None,
@@ -19,9 +19,14 @@ def fig_metric(
     default_color: str = "#000000",
     colors_dict: Dict[str, Any] = {},
 ):
+    """Plots metrics
+
+    Assumes that dataframe at least has columns "algorithm", "num_simulations" and
+    a column titled accordingly to "metric".
+    """
     colors = {}
     for algorithm in df.algorithm.unique():
-        algorithm_first = algorithm.split("_")[-1].split("-")[0]
+        algorithm_first = algorithm.split("_")[-1].split("-")[0].strip()
         if algorithm_first not in colors_dict:
             colors[algorithm] = default_color
         else:
@@ -42,6 +47,9 @@ def fig_metric(
         style["font_size"] = 16
         style["font_size_label"] = 16
         style["font_size_title"] = 16
+
+    keywords["limits"] = None
+    keywords["log_y"] = False
 
     if metric == "MMD":
         keywords["y_axis"] = alt.Axis(title="MMD²")

@@ -22,13 +22,15 @@ def fig_posterior(
     title_dx: int = 0,
     legend: bool = True,
     seed: int = 101,
-    config: str = "manuscript",
+    config: Optional[str] = None,
     width: Optional[int] = None,
     height: Optional[int] = None,
     default_color: str = "#000000",
     colors_dict: Dict[str, Any] = {},
     **kwargs: Any,
 ):
+    """Plots posteriors samples for given task
+    """
     # Samples to plot
     task = sbibm.get_task(task_name)
     samples = []

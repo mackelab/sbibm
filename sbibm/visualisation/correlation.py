@@ -8,7 +8,7 @@ import pandas as pd
 def fig_correlation(
     df: pd.DataFrame,
     metrics: List[str] = ["C2ST", "MMD", "KSD", "MEDDIST"],
-    config: str = "manuscript",
+    config: Optional[str] = None,
     title: Optional[str] = None,
     title_dx: int = 0,
     width: Optional[int] = None,
@@ -16,6 +16,8 @@ def fig_correlation(
     keywords: Dict[str, Any] = {},
     style: Dict[str, Any] = {},
 ):
+    """Plots correlation matrices
+    """
     keywords["sparse"] = True
     keywords["limits"] = [0.0, 1.0]
     keywords["font_size"] = 14

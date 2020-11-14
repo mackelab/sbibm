@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Callable, Optional
 
 import kgof
@@ -13,11 +14,12 @@ from sbibm.utils.torch import get_default_device
 log = logging.getLogger(__name__)
 
 
-def ksd_gaussian_kernel_interface(
+def ksd(
     task: Task,
     num_observation: int,
     samples: torch.Tensor,
     sig2: Optional[float] = None,
+    log: bool = True,
 ) -> torch.Tensor:
     """Gets `log_prob_grad_fn` from task and runs KSD
 
@@ -26,6 +28,7 @@ def ksd_gaussian_kernel_interface(
         num_observation: Observation
         samples: Samples
         sig2: Length scale
+        log: Whether to log test result
 
     Returns:
         The test result is returned
@@ -52,7 +55,13 @@ def ksd_gaussian_kernel_interface(
             )
             return lpg.detach().cpu().numpy()
 
-        return ksd_gaussian_kernel(log_prob_grad_numpy, samples_transformed, sig2=sig2)
+        test_statistic = ksd_gaussian_kernel(
+            log_prob_grad_numpy, samples_transformed, sig2=sig2
+        )
+        if log:
+            return math.log(test_statistic)
+        else:
+            return test_statistic
 
     except:
 

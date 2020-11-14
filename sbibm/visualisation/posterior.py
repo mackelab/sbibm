@@ -29,6 +29,7 @@ def fig_posterior(
     height: Optional[int] = None,
     default_color: str = "#000000",
     colors_dict: Dict[str, Any] = {},
+    interactive: bool = False,
     **kwargs: Any,
 ):
     """Plots posteriors samples for given task
@@ -52,6 +53,7 @@ def fig_posterior(
         default_color: Default color of samples
         colors_dict: Dictionary of colors
         config: Optional string to load predefined config
+        interactive: Interactive mode (experimental)
 
     Returns:
         Chart
@@ -67,7 +69,10 @@ def fig_posterior(
         sample_name = "Prior"
         samples.append(samples_prior.numpy())
         labels_samples.append(sample_name)
-        colors[sample_name].append("#ccc")
+        if sample_name in colors_dict:
+            colors[sample_name] = colors_dict[sample_name]
+        else:
+            colors[sample_name] = "#333"
 
     if reference:
         sample_name = "Posterior"
@@ -81,7 +86,10 @@ def fig_posterior(
         )
         samples.append(samples_reference)
         labels_samples.append(sample_name)
-        colors[sample_name] = "#888"
+        if sample_name in colors_dict:
+            colors[sample_name] = colors_dict[sample_name]
+        else:
+            colors[sample_name] = "#888"
 
     if true_parameter:
         sample_name = "True parameter"
@@ -91,7 +99,10 @@ def fig_posterior(
             .numpy()
         )
         labels_samples.append(sample_name)
-        colors[sample_name] = "#000"
+        if sample_name in colors_dict:
+            colors[sample_name] = colors_dict[sample_name]
+        else:
+            colors[sample_name] = "#000"
 
     if samples_tensor is not None or samples_path is not None:
         if samples_tensor is not None:
@@ -133,13 +144,20 @@ def fig_posterior(
     keywords = {}
 
     keywords["color"] = den.colorscale(colors, shorthand="sample:N", legend=legend)
+    keywords["interactive"] = interactive
 
     limits_auto = "prior"
     _LIMITS_ = {
+        "bernoulli_glm": [-6.0, +6.0],
+        "bernoulli_glm_raw": [-6.0, +6.0],
         "gaussian_linear": [-1.0, +1.0],
         "gaussian_linear_uniform": [-1.0, +1.0],
-        "two_moons": [-1.0, +1.0],
+        "gaussian_mixture": [-10.0, +10.0],
+        "lotka_volterra": [[0.0, 4.0], [0.0, 0.4], [0.0, 3.0], [0.0, 0.3]],
+        "sir": [[0.0, 2.0], [0.0, 0.5]],
         "slcp": [-3.0, +3.0],
+        "slcp_distractors": [-3.0, +3.0],
+        "two_moons": [-1.0, +1.0],
     }
     if task_name in _LIMITS_:
         limits = _LIMITS_[task_name]
@@ -162,15 +180,13 @@ def fig_posterior(
         style["font_family"] = "Inter"
         keywords["width"] = 100 if width is None else width
         keywords["height"] = 100 if height is None else height
+        style["font_size"] = 12
 
     if config == "streamlit":
         size = 500 / task.dim_parameters
         keywords["width"] = size if width is None else width
         keywords["height"] = size if height is None else height
-        style["font_family"] = "Inter"
         style["font_size"] = 16
-        style["font_size_label"] = 16
-        style["font_size_title"] = 16
 
     alt.themes.enable("default")
 
@@ -202,7 +218,7 @@ def fig_posterior(
 
     if title is not None:
         chart = chart.properties(title={"text": [title],}).configure_title(
-            fontSize=12, offset=10, orient="top", anchor="middle", dx=title_dx
+            offset=10, orient="top", anchor="middle", dx=title_dx
         )
 
     return chart

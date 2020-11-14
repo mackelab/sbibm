@@ -29,8 +29,9 @@ def fig_correlation(
         keywords["height"] = 200 if height is None else height
 
     if config == "streamlit":
-        keywords["width"] = None if width is None else width
-        keywords["height"] = None if height is None else height
+        keywords["width"] = 500 if width is None else width
+        keywords["height"] = 500 if height is None else height
+        style["font_size"] = 12
 
     alt.themes.enable("default")
 
@@ -60,7 +61,7 @@ def fig_correlation(
 
     if title is not None:
         chart = chart.properties(title={"text": [title],}).configure_title(
-            fontSize=12, offset=10, orient="top", anchor="middle", dx=title_dx
+            offset=10, orient="top", anchor="middle", dx=title_dx
         )
 
     if config == "manuscript":

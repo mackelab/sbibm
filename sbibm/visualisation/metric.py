@@ -17,7 +17,6 @@ def fig_metric(
     style: Dict[str, Any] = {},
     default_color: str = "#000000",
     colors_dict: Dict[str, Any] = {},
-    rej_abc_first: bool = True,
     config: Optional[str] = None,
 ):
     """Plots metrics
@@ -37,20 +36,20 @@ def fig_metric(
         config: Optional string to load predefined config
         style: Optional dictionary for `den.set_style`
         keywords: Optional dictionary passed on to `den.lineplot`
-        rej_abc_first: Trick to have REJ-ABC (if present as an algorithm) appears 
-            first despite alphabetical sort order of columns. Can be removed once
-            https://github.com/vega/vega-lite/issues/5366 is addressed.
 
     Returns:
         Chart
-    """
-    if rej_abc_first:
-        df = df.copy()
-        df.loc[df["algorithm"] == "REJ-ABC", "algorithm"] = " REJ-ABC"
 
+    Note:
+        Due to an open issue on vega-lite, it is difficult to sort columns in
+        non-alphabetical fashion (i.e., ordered by algorithm name). As a workaround,
+        consider prepending an algorithm with a space to have it listed first, e.g.
+        `df.loc[df["algorithm"] == "REJ-ABC", "algorithm"] = " REJ-ABC"`.
+        See also: https://github.com/vega/vega-lite/issues/5366/
+    """
     colors = {}
     for algorithm in df.algorithm.unique():
-        algorithm_first = algorithm.split("_")[-1].split("-")[0].strip()
+        algorithm_first = algorithm.split("_")[-1].strip()
         if algorithm_first not in colors_dict:
             colors[algorithm] = default_color
         else:
@@ -62,18 +61,19 @@ def fig_metric(
     if config == "manuscript":
         keywords["width"] = 700 / len(df.algorithm.unique()) if width is None else width
         keywords["height"] = 60 if height is None else height
+        style["font_size"] = 12
         style["font_family"] = "Inter"
 
     if config == "streamlit":
         keywords["width"] = None if width is None else width
         keywords["height"] = None if height is None else height
-        style["font_family"] = "Inter"
         style["font_size"] = 16
-        style["font_size_label"] = 16
-        style["font_size_title"] = 16
+        # style["font_size_label"] = 16
+        # style["font_size_title"] = 16
 
     keywords["limits"] = None
     keywords["log_y"] = False
+    keywords["y_axis"] = alt.Axis(title=metric)
 
     if metric == "MMD":
         keywords["y_axis"] = alt.Axis(title="MMD²")
@@ -109,7 +109,6 @@ def fig_metric(
                     "tickWidth": 0,
                     "grid": True,
                     "titlePadding": 0,
-                    # "titleX": 10,
                     "tickCount": 5.0,
                 },
             }
@@ -134,7 +133,7 @@ def fig_metric(
 
     if title is not None:
         chart = chart.properties(title={"text": [title],}).configure_title(
-            fontSize=12, offset=10, orient="top", anchor="middle", dx=title_dx
+            offset=10, orient="top", anchor="middle", dx=title_dx,
         )
 
     return chart

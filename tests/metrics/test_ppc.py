@@ -16,4 +16,4 @@ def test_median_distance():
     median_np = np.array([np.median(l2_distance_np)]).astype(np.float32)
     median = median_distance(predictive_samples, observation)
 
-    torch.allclose(torch.from_numpy(median_np), median)
+    assert torch.allclose(torch.from_numpy(median_np), median)

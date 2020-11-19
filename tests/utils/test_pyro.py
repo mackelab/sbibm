@@ -80,7 +80,7 @@ def test_log_prob_grad_fn(jit_compile, batch_size, implementation):
     We are checking against this analytical derivative.
     """
     task = sbibm.get_task("gaussian_linear", simulator_scale=1.0)
-    observation = torch.zeros((2,))
+    observation = torch.zeros((10,))
     prior = task.get_prior()
 
     log_prob_grad = task._get_log_prob_grad_fn(

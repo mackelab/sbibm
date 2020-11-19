@@ -9,6 +9,20 @@ from sbibm.utils.io import get_ndarray_from_csv
 from sbibm.utils.torch import sample
 
 
+_LIMITS_ = {
+    "bernoulli_glm": [[-6.0, +6.0] for _ in range(10)],
+    "bernoulli_glm_raw": [[-6.0, +6.0] for _ in range(10)],
+    "gaussian_linear": [[-1.0, +1.0] for _ in range(10)],
+    "gaussian_linear_uniform": [[-1.0, +1.0] for _ in range(10)],
+    "gaussian_mixture": [[-10.0, +10.0] for _ in range(2)],
+    "lotka_volterra": [[0.0, 4.0], [0.0, 0.4], [0.0, 3.0], [0.0, 0.3]],
+    "sir": [[0.0, 2.0], [0.0, 0.5]],
+    "slcp": [[-3.0, +3.0] for _ in range(5)],
+    "slcp_distractors": [[-3.0, +3.0] for _ in range(5)],
+    "two_moons": [[-1.0, +1.0] for _ in range(2)],
+}
+
+
 def fig_posterior(
     task_name: str,
     num_observation: int = 1,
@@ -30,6 +44,9 @@ def fig_posterior(
     default_color: str = "#000000",
     colors_dict: Dict[str, Any] = {},
     interactive: bool = False,
+    limits: Optional[List[float]] = None,
+    num_bins: int = 40,
+    scatter_size: float = 1.0,
     **kwargs: Any,
 ):
     """Plots posteriors samples for given task
@@ -54,6 +71,9 @@ def fig_posterior(
         colors_dict: Dictionary of colors
         config: Optional string to load predefined config
         interactive: Interactive mode (experimental)
+        limits: Optional limits
+        num_bins: Number of bins
+        scatter_size: Scatter size
 
     Returns:
         Chart
@@ -146,23 +166,10 @@ def fig_posterior(
     keywords["color"] = den.colorscale(colors, shorthand="sample:N", legend=legend)
     keywords["interactive"] = interactive
 
-    limits_auto = "prior"
-    _LIMITS_ = {
-        "bernoulli_glm": [-6.0, +6.0],
-        "bernoulli_glm_raw": [-6.0, +6.0],
-        "gaussian_linear": [-1.0, +1.0],
-        "gaussian_linear_uniform": [-1.0, +1.0],
-        "gaussian_mixture": [-10.0, +10.0],
-        "lotka_volterra": [[0.0, 4.0], [0.0, 0.4], [0.0, 3.0], [0.0, 0.3]],
-        "sir": [[0.0, 2.0], [0.0, 0.5]],
-        "slcp": [-3.0, +3.0],
-        "slcp_distractors": [-3.0, +3.0],
-        "two_moons": [-1.0, +1.0],
-    }
-    if task_name in _LIMITS_:
-        limits = _LIMITS_[task_name]
-    else:
-        if limits_auto == "prior":
+    if limits is None:
+        if task_name in _LIMITS_:
+            limits = _LIMITS_[task_name]
+        else:
             limits = [
                 list(i)
                 for i in zip(
@@ -170,11 +177,9 @@ def fig_posterior(
                     samples_prior.max(dim=0)[0].tolist(),
                 )
             ]
-        else:
-            limits = None
     keywords["limits"] = limits
 
-    keywords["num_bins"] = 40
+    keywords["num_bins"] = num_bins
 
     if config == "manuscript":
         style["font_family"] = "Inter"
@@ -213,7 +218,7 @@ def fig_posterior(
     )
 
     chart = den.pairplot(
-        df, field="sample", scatter_size=1.0, bar_opacity=0.4, **keywords,
+        df, field="sample", scatter_size=scatter_size, bar_opacity=0.4, **keywords,
     )
 
     if title is not None:

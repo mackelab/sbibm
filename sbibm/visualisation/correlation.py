@@ -31,7 +31,7 @@ def fig_correlation(
     if config == "streamlit":
         keywords["width"] = 500 if width is None else width
         keywords["height"] = 500 if height is None else height
-        style["font_size"] = 12
+        style["font_size"] = 16
 
     alt.themes.enable("default")
 

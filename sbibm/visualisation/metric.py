@@ -68,8 +68,6 @@ def fig_metric(
         keywords["width"] = None if width is None else width
         keywords["height"] = None if height is None else height
         style["font_size"] = 16
-        # style["font_size_label"] = 16
-        # style["font_size_title"] = 16
 
     keywords["limits"] = None
     keywords["log_y"] = False

@@ -8,7 +8,11 @@ from sbibm.tasks.task import Task
 
 
 def run(
-    task: Task, num_samples: int, num_observation: int, rerun: bool, **kwargs: Any,
+    task: Task,
+    num_samples: int,
+    num_observation: int,
+    rerun: bool = True,
+    **kwargs: Any,
 ) -> torch.Tensor:
     """Random samples from saved reference posterior as baseline
 

@@ -21,15 +21,15 @@ def run(
     num_observation: Optional[int] = None,
     observation: Optional[torch.Tensor] = None,
     population_size: Optional[int] = None,
-    distance: Optional[str] = "l1",
+    distance: Optional[str] = "l2",
     epsilon_quantile: Optional[float] = 0.5,
     verbose: bool = True,
     kernel: Optional[str] = "gaussian",
-    kernel_variance_scale: Optional[float] = 1.0,
+    kernel_variance_scale: Optional[float] = 0.5,
     population_strategy: Optional[str] = "constant",
     num_workers: int = 1,
 ) -> (torch.Tensor, int, Optional[torch.Tensor]):
-    """ABC-SMC using pyabc toolbox.
+    """ABC-SMC using pyabc toolbox
 
     Args:
         task: Task instance
@@ -37,7 +37,8 @@ def run(
         num_simulations: Simulation budget
         num_observation: Observation number to load, alternative to `observation`
         observation: Observation, alternative to `num_observation`
-        population_size: If None, uses heuristic
+        population_size: If None, uses heuristic: 1000 if `num_simulations` is greater
+            than 10k, else 100
         distance: Distance function, options = {l1, l2, mse}
         epsilon_decay: Decay for epsilon
         ess_min: Minimum ESS
@@ -57,33 +58,30 @@ def run(
 
     log = sbibm.get_logger(__name__)
 
-    # Wrap sbibm prior and simulator for pyABC.
+    # Wrap sbibm prior and simulator for pyABC
     prior = wrap_prior(task)
     simulator = PyAbcSimulator(task)
-
-    # import pdb; pdb.set_trace()
-    # prior, simulator = get_prior_and_simulator(task)
 
     distance = get_distance(distance)
     if observation is None:
         observation = task.get_observation(num_observation)
     observation = np.atleast_1d(np.array(observation, dtype=float).squeeze())
 
-    # Epsilon schedule.
+    # Epsilon schedule
     epsilon = pyabc.epsilon.QuantileEpsilon(
         initial_epsilon="from_sample", alpha=epsilon_quantile
     )
 
-    # Perturbation kernel.
+    # Perturbation kernel
     transition = pyabc.transition.MultivariateNormalTransition(
         scaling=kernel_variance_scale
     )
 
-    # Population size strategy.
+    # Population size strategy
     if population_size is None:
-        population_size = clip_int(
-            value=0.1 * num_simulations, minimum=500, maximum=num_samples / 2,
-        )
+        population_size = 100
+        if num_simulations > 10_000:
+            population_size = 1000
 
     population_size = min(population_size, num_simulations)
 
@@ -96,7 +94,7 @@ def run(
             min_population_size=int(0.1 * population_size),
         )
 
-    # Multiprocessing.
+    # Multiprocessing
     if num_workers > 1:
         sampler = pyabc.sampler.MulticoreParticleParallelSampler(n_procs=num_workers)
     else:
@@ -116,7 +114,7 @@ def run(
     log.info(f"Starting to run ABC-SMC-pyabc")
     db = "sqlite:///" + os.path.join(tempfile.gettempdir(), "test.db")
 
-    # initial run
+    # Initial run
     abc = pyabc.ABCSMC(**kwargs)
     abc.new(db, {"data": observation})
     history = abc.run(max_nr_populations=1)
@@ -158,8 +156,9 @@ def run(
 
         log.info(f"Sampling {num_samples} samples from trace")
         samples = sample_with_weights(particles, weights, num_samples=num_samples)
-    # This happens when the initial population already used up the budget.
-    # Then we just return the prior samples.
+
+    # This happens when the initial population already used up the budget:
+    # We just return the prior samples
     else:
         log.info(f"pyabc exceeded budget in initial run. Returning prior samples!")
         log.info(f"Sampling {num_samples} samples from prior")

@@ -48,7 +48,7 @@ def run(
     if observation is None:
         observation = task.get_observation(num_observation)
 
-    # Simulate training data set.
+    # Simulate training data set
     log.info(f"Generating data set as reference table")
     thetas = prior(num_samples=num_simulations)
 
@@ -74,7 +74,7 @@ def run(
     np_xs = xs.numpy().astype(np.float64)
     np_xo = observation.reshape(-1).numpy().astype(np.float64)
 
-    # Put data in reference table.
+    # Put data in reference table
     reftable = pyabcranger.reftable(
         num_simulations,
         # nrecscen, sth with number of scenarios, would stick with 0.
@@ -88,7 +88,7 @@ def run(
         np.ones(num_simulations),
     )
 
-    # Inference per dimension.
+    # Inference per dimension
     log.info(f"Running RF inference for each parameter separately")
     postres = [
         pyabcranger.estimparam(
@@ -103,7 +103,7 @@ def run(
         for dim in tqdm(range(dim_thetas))
     ]
 
-    # Get weights per dimension.
+    # Get weights per dimension
     log.info(f"Generating independent posterior samples per parameter")
     samples = []
     for dim in range(dim_thetas):

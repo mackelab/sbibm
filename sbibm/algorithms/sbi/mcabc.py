@@ -16,7 +16,7 @@ def run(
     num_simulations: int,
     num_observation: Optional[int] = None,
     observation: Optional[torch.Tensor] = None,
-    num_top_samples: Optional[int] = None,
+    num_top_samples: Optional[int] = 100,
     quantile: Optional[float] = None,
     eps: Optional[float] = None,
     distance: str = "l2",
@@ -24,7 +24,7 @@ def run(
     save_distances: bool = False,
     kde_bandwidth: Optional[str] = None,
 ) -> (torch.Tensor, int, Optional[torch.Tensor]):
-    """Runs MC-ABC from `sbi`
+    """Runs REJ-ABC from `sbi`
 
     Choose one of `num_top_samples`, `quantile`, `eps`.
 
@@ -54,7 +54,7 @@ def run(
         quantile = num_top_samples / num_simulations
 
     log = sbibm.get_logger(__name__)
-    log.info(f"Running MC-ABC")
+    log.info(f"Running REJ-ABC")
 
     prior = task.get_prior_dist()
     simulator = task.get_simulator(max_calls=num_simulations)

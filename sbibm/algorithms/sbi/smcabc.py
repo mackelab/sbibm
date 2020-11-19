@@ -16,16 +16,16 @@ def run(
     num_simulations: int,
     num_observation: Optional[int] = None,
     observation: Optional[torch.Tensor] = None,
-    population_size: int = 1000,
+    population_size: Optional[int] = None,
     distance: str = "l2",
-    epsilon_decay: float = 0.9,
-    distance_based_decay: bool = False,
+    epsilon_decay: float = 0.5,
+    distance_based_decay: bool = True,
     ess_min: float = 0.5,
     initial_round_factor: int = 5,
     batch_size: int = 1000,
     kernel: str = "gaussian",
-    kernel_variance_scale: float = 1.0,
-    use_last_pop_samples: bool = True,
+    kernel_variance_scale: float = 0.5,
+    use_last_pop_samples: bool = False,
     algorithm_variant: str = "C",
     save_summary: bool = False,
 ) -> (torch.Tensor, int, Optional[torch.Tensor]):
@@ -42,7 +42,8 @@ def run(
         num_simulations: Simulation budget
         num_observation: Observation number to load, alternative to `observation`
         observation: Observation, alternative to `num_observation`
-        population_size: If None, uses heuristic
+        population_size: If None, uses heuristic: 1000 if `num_simulations` is greater
+            than 10k, else 100
         distance: Distance function, options = {l1, l2, mse}
         epsilon_decay: Decay for epsilon
         distance_based_decay: Whether to determine new epsilon from quantile of
@@ -77,9 +78,9 @@ def run(
         observation = task.get_observation(num_observation)
 
     if population_size is None:
-        population_size = clip_int(
-            value=0.1 * num_simulations, minimum=500, maximum=num_samples / 2,
-        )
+        population_size = 100
+        if num_simulations > 10_000:
+            population_size = 1000
 
     population_size = min(population_size, num_simulations)
 

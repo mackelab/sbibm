@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import altair as alt
 import deneb as den
@@ -44,7 +44,7 @@ def fig_posterior(
     default_color: str = "#000000",
     colors_dict: Dict[str, Any] = {},
     interactive: bool = False,
-    limits: Optional[List[float]] = None,
+    limits: Optional[Union[List[float], str]] = None,
     num_bins: int = 40,
     scatter_size: float = 1.0,
     **kwargs: Any,
@@ -71,7 +71,8 @@ def fig_posterior(
         colors_dict: Dictionary of colors
         config: Optional string to load predefined config
         interactive: Interactive mode (experimental)
-        limits: Optional limits
+        limits: Optional limits, can also be a string, e.g., "Prior", "Ref. Posterior",
+            "Algorithm" / `samples_name`, in which case respective ranges are used
         num_bins: Number of bins
         scatter_size: Scatter size
 
@@ -92,10 +93,10 @@ def fig_posterior(
         if sample_name in colors_dict:
             colors[sample_name] = colors_dict[sample_name]
         else:
-            colors[sample_name] = "#333"
+            colors[sample_name] = "#646464"
 
     if reference:
-        sample_name = "Posterior"
+        sample_name = "Ref. Posterior"
         samples_reference = sample(
             task.get_reference_posterior_samples(
                 num_observation=num_observation
@@ -109,7 +110,7 @@ def fig_posterior(
         if sample_name in colors_dict:
             colors[sample_name] = colors_dict[sample_name]
         else:
-            colors[sample_name] = "#888"
+            colors[sample_name] = "#0a0a0a"
 
     if true_parameter:
         sample_name = "True parameter"
@@ -122,7 +123,7 @@ def fig_posterior(
         if sample_name in colors_dict:
             colors[sample_name] = colors_dict[sample_name]
         else:
-            colors[sample_name] = "#000"
+            colors[sample_name] = "#f92700"
 
     if samples_tensor is not None or samples_path is not None:
         if samples_tensor is not None:
@@ -177,6 +178,17 @@ def fig_posterior(
                     samples_prior.max(dim=0)[0].tolist(),
                 )
             ]
+    elif type(limits) == str:
+        assert limits in labels_samples
+        samples_limits = torch.from_numpy(samples[labels_samples.index(limits)])
+        limits = [
+            list(i)
+            for i in zip(
+                samples_limits.min(dim=0)[0].tolist(),
+                samples_limits.max(dim=0)[0].tolist(),
+            )
+        ]
+
     keywords["limits"] = limits
 
     keywords["num_bins"] = num_bins

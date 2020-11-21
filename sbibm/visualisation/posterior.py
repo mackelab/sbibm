@@ -41,7 +41,7 @@ def fig_posterior(
     config: Optional[str] = None,
     width: Optional[int] = None,
     height: Optional[int] = None,
-    default_color: str = "#000000",
+    default_color: str = "#0035FD",
     colors_dict: Dict[str, Any] = {},
     interactive: bool = False,
     limits: Optional[Union[List[float], str]] = None,

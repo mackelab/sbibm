@@ -2,7 +2,7 @@
 
 # Benchmarking simulation-based inference
 
-This repository contains a simulation-based inference benchmark, `sbibm`, which we describe in the [associated manuscript "Benchmarking Simulation-based Inference"](https://github.com/mackelab/sbibm#Citation). The benchmark framework includes tasks, reference posteriors, metrics, plotting, and integrations with SBI toolboxes. The framework is designed to be highly extensible and easily used in new research projects: For each benchmark task, prior, simulator, and reference posteriors are exposed, so that `sbibm` can be used easily in research code, as we demonstrate below. 
+This repository contains a simulation-based inference benchmark framework, `sbibm`, which we describe in the [associated manuscript "Benchmarking Simulation-based Inference"](https://github.com/mackelab/sbibm#Citation). The benchmark framework includes tasks, reference posteriors, metrics, plotting, and integrations with SBI toolboxes. The framework is designed to be highly extensible and easily used in new research projects: For each benchmark task, prior, simulator, and reference posteriors are exposed, so that `sbibm` can be used easily in research code, as we demonstrate below. 
 
 In order to emphasize that `sbibm` can be used independently of any particular analysis pipeline, we split the code for reproducing the experiments of the manuscript into a seperate repository hosted at [github.com/sbi-benchmark/benchmarking_sbi](https://github.com/sbi-benchmark/benchmarking_sbi). Besides the pipeline to reproduce the manuscripts' experiments, full results including dataframes for quick comparisons are hosted in that repository.
 
@@ -41,7 +41,7 @@ thetas = prior(num_samples=100)
 xs = simulator(thetas)
 ```
 
-`xs` is a `torch.Tensor` with shape `(100, 8)`, since for SLCP parameters as 8 dimensional. Note that if required, conversion to and from `torch.Tensor` is very easy: Convert to a numpy array using `.numpy()`, e.g., `xs.numpy()`. For the reverse, use `torch.from_numpy()` on a numpy array.
+`xs` is a `torch.Tensor` with shape `(100, 8)`, since for SLCP the data is eight-dimensional. Note that if required, conversion to and from `torch.Tensor` is very easy: Convert to a numpy array using `.numpy()`, e.g., `xs.numpy()`. For the reverse, use `torch.from_numpy()` on a numpy array.
 
 Some algorithms might require evaluating the pdf of the prior distribution, which can be obtained as a [`torch.Distribution` instance](https://pytorch.org/docs/stable/distributions.html) using `task.get_prior_dist()`, which exposes `log_prob` and `sample` methods. The parameters of the prior can be picked up as a dictionary as parameters using `task.get_prior_params()`.
 
@@ -54,19 +54,19 @@ reference_samples = task.get_reference_posterior_samples(num_observation=1)
 Every tasks has a couple of informative attributes, including:
 
 ```python
-task.dim_data               # dimensionality data, here: 5
-task.dim_parameters         # dimensionality parameters, here: 8
+task.dim_data               # dimensionality data, here: 8
+task.dim_parameters         # dimensionality parameters, here: 5
 task.num_observations       # number of different observations x_o available, here: 10
 task.name                   # name: slcp
 task.name_display           # name_display: SLCP
 ```
 
-Finally, if you want to have a look at the source code of the task, take a look in `sbibm/tasks/slcp/task.py`. If you wanted to implement a new task, we would recommend modelling them after existing ones. You will see that each task has a private `_setup` method that was used to generate the reference posterior samples. 
+Finally, if you want to have a look at the source code of the task, take a look in `sbibm/tasks/slcp/task.py`. If you wanted to implement a new task, we would recommend modelling them after the existing ones. You will see that each task has a private `_setup` method that was used to generate the reference posterior samples. 
 
 
 ## Algorithms
 
-As mentioned in the intro, `sbibm` wraps a number of third-party packages to run various algorithms. We found it easiest to give each algorithm the same interface: In general, each algorithm specifies a `run` function that gets `task` and hyperparameters as arguments, and eventually returns the required `num_posterior_samples`. That way, one can simply import the run function of an algorithm, tun it on any given task, and return metrics on the returned samples. Wrappers for external toolboxes implementing algorithms are in the subfolder `sbibm/algorithms`. Currently, integrations with [`sbi`](https://www.mackelab.org/sbi/), [`pyabc`](https://pyabc.readthedocs.io), [`pyabcranger`](https://github.com/diyabc/abcranger), as well as an experimental integration with [`elfi`](https://github.com/diyabc/abcranger) are provided.
+As mentioned in the intro, `sbibm` wraps a number of third-party packages to run various algorithms. We found it easiest to give each algorithm the same interface: In general, each algorithm specifies a `run` function that gets `task` and hyperparameters as arguments, and eventually returns the required `num_posterior_samples`. That way, one can simply import the run function of an algorithm, tune it on any given task, and return metrics on the returned samples. Wrappers for external toolboxes implementing algorithms are in the subfolder `sbibm/algorithms`. Currently, integrations with [`sbi`](https://www.mackelab.org/sbi/), [`pyabc`](https://pyabc.readthedocs.io), [`pyabcranger`](https://github.com/diyabc/abcranger), as well as an experimental integration with [`elfi`](https://github.com/diyabc/abcranger) are provided.
 
 
 ## Metrics

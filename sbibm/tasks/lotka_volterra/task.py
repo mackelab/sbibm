@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import gc
 from pathlib import Path
 from typing import Callable, List, Optional
@@ -55,6 +57,37 @@ class LotkaVolterra(Task):
             1000007,  # observation 8
             1000008,  # observation 9
             1000009,  # observation 10
+            1000020,
+            1000021,
+            1000022,
+            1000023,
+            1000024,
+            1000025,
+            1000026,
+            1000027,
+            1000028,
+            1000029,
+            1000030,
+            1000031,
+            1000032,
+            1000033,
+            1000034,
+            1000035,
+            1000036,
+            1000037,
+            1000038,
+            1000039,
+            1000040,
+            1000041,
+            1000042,
+            1000043,
+            1000044,
+            1000045,
+            1000046,
+            1000047,
+            1000048,
+            1000049,
+            1000050,
         ]
 
         super().__init__(
@@ -62,7 +95,7 @@ class LotkaVolterra(Task):
             dim_data=dim_data,
             name=Path(__file__).parent.name,
             name_display="Lotka-Volterra",
-            num_observations=10,
+            num_observations=len(observation_seeds),
             num_posterior_samples=10000,
             num_reference_posterior_samples=10000,
             num_simulations=[100, 1000, 10000, 100000, 1000000],
@@ -144,16 +177,8 @@ class LotkaVolterra(Task):
                 us.append(u.reshape(1, 2, -1))
             us = torch.cat(us).float()  # num_parameters x 2 x (days/saveat + 1)
 
-            idx_contains_nan = torch.where(
-                torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
-            )[
-                0
-            ]  # noqa
-            idx_contains_no_nan = torch.where(
-                ~torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
-            )[
-                0
-            ]  # noqa
+            idx_contains_nan = torch.where(torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
+            idx_contains_no_nan = torch.where(~torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
 
             if self.summary is None:
                 return us

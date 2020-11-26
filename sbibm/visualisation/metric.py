@@ -49,11 +49,11 @@ def fig_metric(
     """
     colors = {}
     for algorithm in df.algorithm.unique():
-        algorithm_first = algorithm.split("_")[-1].strip()
-        if algorithm_first not in colors_dict:
+        algorithm_stripped = algorithm.strip()
+        if algorithm_stripped not in colors_dict:
             colors[algorithm] = default_color
         else:
-            colors[algorithm] = colors_dict[algorithm_first]
+            colors[algorithm] = colors_dict[algorithm_stripped]
 
     keywords["column_labels"] = labels
     keywords["color"] = den.colorscale(colors, shorthand="algorithm:N")

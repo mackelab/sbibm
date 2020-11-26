@@ -130,28 +130,28 @@ def run(
         # Regression.
         theta_pilot = posterior.sample((num_regression_samples,))
         x_pilot = simulator(theta_pilot)
-        ss_map = np.zeros((task.dim_data, task.dim_parameters))
+        sumstats_map = np.zeros((task.dim_data, task.dim_parameters))
         # Run regression for every parameter separately.
         for parameter_idx in range(task.dim_parameters):
             regression_model = LinearRegression(fit_intercept=True)
             regression_model.fit(X=x_pilot, y=theta_pilot[:, parameter_idx])
-            ss_map[:, parameter_idx] = regression_model.coef_
-        ss_map = torch.tensor(ss_map, dtype=torch.float32)
+            sumstats_map[:, parameter_idx] = regression_model.coef_
+        sumstats_map = torch.tensor(sumstats_map, dtype=torch.float32)
 
         # Change simulator and observation.
-        def ss_transform(x):
-            return x.mm(ss_map)
+        def sumstats_transform(x):
+            return x.mm(sumstats_map)
 
-        ss_simulator = lambda theta: ss_transform(simulator(theta))
-        observation = ss_transform(observation)
+        sumstats_simulator = lambda theta: sumstats_transform(simulator(theta))
+        observation = sumstats_transform(observation)
         log.info(f"Finished learning summary statistics.")
 
     else:
         num_pilot_simulations = 0
-        ss_simulator = simulator
+        sumstats_simulator = simulator
 
     inference_method = SMCABC(
-        simulator=ss_simulator,
+        simulator=sumstats_simulator,
         prior=prior,
         simulation_batch_size=batch_size,
         distance=distance,
@@ -179,6 +179,27 @@ def run(
     assert simulator.num_simulations == num_simulations
 
     samples = posterior.sample((num_samples,)).detach()
+
+    if linear_regression_adjustment:
+        # TODO: Posterior does not return xs, which we would need for
+        # regression adjustment. So we will resimulate, which is
+        # unneccessary. Should ideally change `inference_method` to return xs
+        # if requested instead.
+        xs = task.get_simulator(max_calls=None)(samples)
+
+        # NOTE: If posterior is bounded we should do the regression in
+        # unbounded space, as described in https://arxiv.org/abs/1707.01254
+        transform_to_unbounded = True
+        transforms = task._get_transforms(transform_to_unbounded)["parameters"]
+
+        samples_adjusted = transforms(samples)
+        for parameter_idx in range(task.dim_parameters):
+            regression_model = LinearRegression(fit_intercept=True)
+            regression_model.fit(X=xs, y=samples[:, parameter_idx])
+            samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
+            samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
+
+        samples = transforms.inv(samples_adjusted)
 
     if num_observation is not None:
         true_parameters = task.get_true_parameters(num_observation=num_observation)

@@ -148,6 +148,27 @@ def run(
 
     samples = posterior.sample((num_samples,)).detach()
 
+    if linear_regression_adjustment:
+        # TODO: Posterior does not return xs, which we would need for
+        # regression adjustment. So we will resimulate, which is
+        # unneccessary. Should ideally change `inference_method` to return xs
+        # if requested instead.
+        xs = task.get_simulator(max_calls=None)(samples)
+
+        # NOTE: If posterior is bounded we should do the regression in
+        # unbounded space, as described in https://arxiv.org/abs/1707.01254
+        transform_to_unbounded = True
+        transforms = task._get_transforms(transform_to_unbounded)["parameters"]
+
+        samples_adjusted = transforms(samples)
+        for parameter_idx in range(task.dim_parameters):
+            regression_model = LinearRegression(fit_intercept=True)
+            regression_model.fit(X=xs, y=samples[:, parameter_idx])
+            samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
+            samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
+
+        samples = transforms.inv(samples_adjusted)
+
     if num_observation is not None:
         true_parameters = task.get_true_parameters(num_observation=num_observation)
         log_prob_true_parameters = posterior.log_prob(true_parameters)

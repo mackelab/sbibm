@@ -17,7 +17,7 @@ def mmd(
     X: torch.Tensor,
     Y: torch.Tensor,
     implementation: str = "tp_sutherland",
-    z_score: bool = True,
+    z_score: bool = False,
     bandwidth: str = "X",
 ) -> torch.Tensor:
     """Estimate MMD^2 statistic with Gaussian kernel

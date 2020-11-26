@@ -1,8 +1,9 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
 from sbi.inference import MCABC
+from sklearn.linear_model import LinearRegression
 
 import sbibm
 from sbibm.tasks.task import Task
@@ -23,7 +24,9 @@ def run(
     batch_size: int = 1000,
     save_distances: bool = False,
     kde_bandwidth: Optional[str] = None,
-) -> (torch.Tensor, int, Optional[torch.Tensor]):
+    learn_summary_statistics: bool = False,
+    linear_regression_adjustment: bool = False,
+) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs REJ-ABC from `sbi`
 
     Choose one of `num_top_samples`, `quantile`, `eps`.
@@ -41,7 +44,10 @@ def run(
         batch_size: Batch size for simulator
         save_distances: If True, stores distances of samples to disk
         kde_bandwidth: If not None, will resample using KDE when necessary
-
+        learn_summary_statistics: If True, summary statistics are learned as in
+            Fearnhead & Prangle 2012.
+        linear_regression_adjustment: If True, posterior samples are adjusted with
+            linear regression as in Beaumont et al. 2002.
     Returns:
         Samples from posterior, number of simulator calls, log probability of true params if computable
     """
@@ -49,9 +55,6 @@ def run(
     assert not (num_observation is not None and observation is not None)
 
     assert not (num_top_samples is None and quantile is None and eps is None)
-    # SBI takes only quantile or eps. Derive quantile from num_top_samples if needed.
-    if num_top_samples is not None and quantile is None:
-        quantile = num_top_samples / num_simulations
 
     log = sbibm.get_logger(__name__)
     log.info(f"Running REJ-ABC")
@@ -61,8 +64,56 @@ def run(
     if observation is None:
         observation = task.get_observation(num_observation)
 
+    if learn_summary_statistics:
+        # Pilot run.
+        log.info(f"Pilot run for semi-automatic summary stats.")
+
+        num_pilot_budget = int(num_simulations / 2)
+        num_regression_samples = num_top_samples
+        num_pilot_simulations = num_pilot_budget - num_regression_samples
+        if num_top_samples is not None and quantile is None:
+            quantile = num_top_samples / num_pilot_simulations
+
+        inference_method = MCABC(
+            simulator=simulator,
+            prior=prior,
+            simulation_batch_size=batch_size,
+            distance=distance,
+            show_progress_bars=True,
+        )
+        pilot_posterior = inference_method(
+            x_o=observation,
+            num_simulations=num_pilot_simulations,
+            eps=None,
+            quantile=quantile,
+            return_distances=False,
+        )
+        # Regression.
+        pilot_theta = pilot_posterior.sample((num_regression_samples,))
+        pilot_x = simulator(pilot_theta)
+        sumstats_map = np.zeros((task.dim_data, task.dim_parameters))
+        # Run regression for every parameter separately.
+        for parameter_idx in range(task.dim_parameters):
+            regression_model = LinearRegression(fit_intercept=True)
+            regression_model.fit(X=pilot_x, y=pilot_theta[:, parameter_idx])
+            sumstats_map[:, parameter_idx] = regression_model.coef_
+        sumstats_map = torch.tensor(sumstats_map, dtype=torch.float32)
+
+        def sumstats_transform(x):
+            return x.mm(sumstats_map)
+
+        sumstats_simulator = lambda theta: sumstats_transform(simulator(theta))
+        observation = sumstats_transform(observation)
+        log.info(f"Finished learning summary statistics.")
+    else:
+        sumstats_simulator = simulator
+        num_pilot_budget = 0
+        # SBI takes only quantile or eps. Derive quantile from num_top_samples if needed.
+        if num_top_samples is not None and quantile is None:
+            quantile = num_top_samples / num_simulations
+
     inference_method = MCABC(
-        simulator=simulator,
+        simulator=sumstats_simulator,
         prior=prior,
         simulation_batch_size=batch_size,
         distance=distance,
@@ -70,16 +121,16 @@ def run(
     )
     posterior, distances = inference_method(
         x_o=observation,
-        num_simulations=num_simulations,
+        num_simulations=num_simulations - num_pilot_budget,
         eps=eps,
         quantile=quantile,
         return_distances=True,
     )
 
+    assert simulator.num_simulations == num_simulations
+
     if save_distances:
         save_tensor_to_csv("distances.csv", distances)
-
-    assert simulator.num_simulations == num_simulations
 
     if kde_bandwidth is not None:
         samples = posterior._samples

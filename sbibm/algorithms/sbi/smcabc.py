@@ -1,8 +1,10 @@
-from typing import Optional
+from typing import Optional, Tuple
 
+import numpy as np
 import pandas as pd
 import torch
 from sbi.inference import SMCABC
+from sklearn.linear_model import LinearRegression
 
 import sbibm
 from sbibm.tasks.task import Task
@@ -18,7 +20,7 @@ def run(
     observation: Optional[torch.Tensor] = None,
     population_size: Optional[int] = None,
     distance: str = "l2",
-    epsilon_decay: float = 0.5,
+    epsilon_quantile: float = 0.5,
     distance_based_decay: bool = True,
     ess_min: float = 0.5,
     initial_round_factor: int = 5,
@@ -28,7 +30,9 @@ def run(
     use_last_pop_samples: bool = False,
     algorithm_variant: str = "C",
     save_summary: bool = False,
-) -> (torch.Tensor, int, Optional[torch.Tensor]):
+    learn_summary_statistics: bool = False,
+    linear_regression_adjustment: bool = False,
+) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs SMC-ABC from `sbi`
 
     SMC-ABC supports two different ways of scheduling epsilon:
@@ -45,7 +49,7 @@ def run(
         population_size: If None, uses heuristic: 1000 if `num_simulations` is greater
             than 10k, else 100
         distance: Distance function, options = {l1, l2, mse}
-        epsilon_decay: Decay for epsilon
+        epsilon_quantile: Decay for epsilon
         distance_based_decay: Whether to determine new epsilon from quantile of
             distances of the previous population.
         ess_min: Threshold for resampling a population if effective sampling size is too
@@ -61,6 +65,10 @@ def run(
             See doctstrings in SBI package for more details.
         save_summary: Whether to save a summary containing all populations, distances,
             etc. to file.
+        learn_summary_statistics: If True, summary statistics are learned as in
+            Fearnhead & Prangle 2012.
+        linear_regression_adjustment: If True, posterior samples are adjusted with
+            linear regression as in Beaumont et al. 2002.
 
     Returns:
         Samples from posterior, number of simulator calls, log probability of true params if computable
@@ -90,8 +98,60 @@ def run(
         maximum=max(0.5 * num_simulations, population_size),
     )
 
+    if learn_summary_statistics:
+        # Pilot run.
+        log.info(f"Pilot run for semi-automatic summary stats.")
+
+        num_pilot_simulations = int(num_simulations / 2)
+        num_regression_samples = population_size
+
+        inference_method = SMCABC(
+            simulator=simulator,
+            prior=prior,
+            simulation_batch_size=batch_size,
+            distance=distance,
+            show_progress_bars=True,
+            kernel=kernel,
+            algorithm_variant=algorithm_variant,
+        )
+        posterior = inference_method(
+            x_o=observation,
+            num_particles=population_size,
+            num_initial_pop=initial_round_size,
+            num_simulations=num_pilot_simulations - num_regression_samples,
+            epsilon_decay=epsilon_quantile,
+            distance_based_decay=distance_based_decay,
+            ess_min=ess_min,
+            kernel_variance_scale=kernel_variance_scale,
+            use_last_pop_samples=use_last_pop_samples,
+            return_summary=False,
+        )
+
+        # Regression.
+        theta_pilot = posterior.sample((num_regression_samples,))
+        x_pilot = simulator(theta_pilot)
+        ss_map = np.zeros((task.dim_data, task.dim_parameters))
+        # Run regression for every parameter separately.
+        for parameter_idx in range(task.dim_parameters):
+            regression_model = LinearRegression(fit_intercept=True)
+            regression_model.fit(X=x_pilot, y=theta_pilot[:, parameter_idx])
+            ss_map[:, parameter_idx] = regression_model.coef_
+        ss_map = torch.tensor(ss_map, dtype=torch.float32)
+
+        # Change simulator and observation.
+        def ss_transform(x):
+            return x.mm(ss_map)
+
+        ss_simulator = lambda theta: ss_transform(simulator(theta))
+        observation = ss_transform(observation)
+        log.info(f"Finished learning summary statistics.")
+
+    else:
+        num_pilot_simulations = 0
+        ss_simulator = simulator
+
     inference_method = SMCABC(
-        simulator=simulator,
+        simulator=ss_simulator,
         prior=prior,
         simulation_batch_size=batch_size,
         distance=distance,
@@ -103,8 +163,8 @@ def run(
         x_o=observation,
         num_particles=population_size,
         num_initial_pop=initial_round_size,
-        num_simulations=num_simulations,
-        epsilon_decay=epsilon_decay,
+        num_simulations=num_simulations - num_pilot_simulations,
+        epsilon_decay=epsilon_quantile,
         distance_based_decay=distance_based_decay,
         ess_min=ess_min,
         kernel_variance_scale=kernel_variance_scale,

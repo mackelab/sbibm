@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch
+from pyro.distributions.empirical import Empirical
 from sbi.inference import MCABC
 from sklearn.linear_model import LinearRegression
 
@@ -132,23 +133,9 @@ def run(
     if save_distances:
         save_tensor_to_csv("distances.csv", distances)
 
-    if kde_bandwidth is not None:
+    if linear_regression_adjustment:
         samples = posterior._samples
 
-        log.info(
-            f"KDE on {samples.shape[0]} samples with bandwidth option {kde_bandwidth}"
-        )
-        kde = get_kde(samples, bandwidth=kde_bandwidth)
-
-        return (
-            kde.sample(num_samples),
-            simulator.num_simulations,
-            None,
-        )
-
-    samples = posterior.sample((num_samples,)).detach()
-
-    if linear_regression_adjustment:
         # TODO: Posterior does not return xs, which we would need for
         # regression adjustment. So we will resimulate, which is
         # unneccessary. Should ideally change `inference_method` to return xs
@@ -167,7 +154,23 @@ def run(
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 
-        samples = transforms.inv(samples_adjusted)
+        samples_adjusted = transforms.inv(samples_adjusted)
+
+        posterior = Empirical(
+            samples_adjusted, log_weights=torch.ones(samples_adjusted.shape[0])
+        )
+
+    if kde_bandwidth is not None:
+        samples = posterior._samples
+
+        log.info(
+            f"KDE on {samples.shape[0]} samples with bandwidth option {kde_bandwidth}"
+        )
+        kde = get_kde(samples, bandwidth=kde_bandwidth)
+
+        samples = (kde.sample(num_samples),)
+    else:
+        samples = posterior.sample((num_samples,)).detach()
 
     if num_observation is not None:
         true_parameters = task.get_true_parameters(num_observation=num_observation)

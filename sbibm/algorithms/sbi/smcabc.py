@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 import torch
+from pyro.distributions.empirical import Empirical
 from sbi.inference import SMCABC
 from sklearn.linear_model import LinearRegression
 
@@ -178,9 +179,9 @@ def run(
 
     assert simulator.num_simulations == num_simulations
 
-    samples = posterior.sample((num_samples,)).detach()
-
     if linear_regression_adjustment:
+        samples = posterior._samples
+
         # TODO: Posterior does not return xs, which we would need for
         # regression adjustment. So we will resimulate, which is
         # unneccessary. Should ideally change `inference_method` to return xs
@@ -199,7 +200,13 @@ def run(
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 
-        samples = transforms.inv(samples_adjusted)
+        samples_adjusted = transforms.inv(samples_adjusted)
+
+        posterior = Empirical(
+            samples_adjusted, log_weights=torch.ones(samples_adjusted.shape[0])
+        )
+
+    samples = posterior.sample((num_samples,)).detach()
 
     if num_observation is not None:
         true_parameters = task.get_true_parameters(num_observation=num_observation)

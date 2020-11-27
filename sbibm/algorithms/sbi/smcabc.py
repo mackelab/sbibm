@@ -3,7 +3,6 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 import torch
-from pyro.distributions.empirical import Empirical
 from sbi.inference import SMCABC
 from sklearn.linear_model import LinearRegression
 
@@ -96,7 +95,6 @@ def run(
         log.info(f"Pilot run for semi-automatic summary stats.")
 
         num_pilot_simulations = int(num_simulations / 2)
-        num_regression_samples = population_size
 
         population_size = min(population_size, num_pilot_simulations)
 
@@ -136,9 +134,14 @@ def run(
         # if requested instead. This step thus does not count towards budget
         pilot_x = task.get_simulator(max_calls=None)(pilot_theta)
         sumstats_map = np.zeros((task.dim_data, task.dim_parameters))
+
         for parameter_idx in range(task.dim_parameters):
             regression_model = LinearRegression(fit_intercept=True)
-            regression_model.fit(X=pilot_x, y=pilot_theta[:, parameter_idx])
+            regression_model.fit(
+                X=pilot_x,
+                y=pilot_theta[:, parameter_idx],
+                sample_weight=pilot_posterior._log_weights.exp(),
+            )
             sumstats_map[:, parameter_idx] = regression_model.coef_
         sumstats_map = torch.tensor(sumstats_map, dtype=torch.float32)
 
@@ -189,6 +192,7 @@ def run(
     assert simulator.num_simulations == num_simulations
 
     if linear_regression_adjustment:
+        log.info(f"Running linear regression adjustment.")
         samples = posterior._samples
 
         # TODO: Posterior does not return xs, which we would need for
@@ -205,7 +209,11 @@ def run(
         samples_adjusted = transforms(samples)
         for parameter_idx in range(task.dim_parameters):
             regression_model = LinearRegression(fit_intercept=True)
-            regression_model.fit(X=xs, y=samples[:, parameter_idx])
+            regression_model.fit(
+                X=xs,
+                y=samples[:, parameter_idx],
+                sample_weight=posterior._log_weights.exp(),
+            )
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 

@@ -8,6 +8,7 @@ from sklearn.linear_model import LinearRegression
 
 import sbibm
 from sbibm.tasks.task import Task
+from sbibm.utils.kde import get_kde
 
 from .utils import clip_int
 

@@ -32,6 +32,7 @@ def run(
     save_summary: bool = False,
     learn_summary_statistics: bool = False,
     linear_regression_adjustment: bool = False,
+    kde_bandwidth: Optional[str] = None,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs SMC-ABC from `sbi`
 
@@ -69,6 +70,8 @@ def run(
             Fearnhead & Prangle 2012.
         linear_regression_adjustment: If True, posterior samples are adjusted with
             linear regression as in Beaumont et al. 2002.
+        kde_bandwidth: If not None, will resample using KDE when necessary, set
+            e.g. to "cv" for cross-validated bandwidth selection
 
     Returns:
         Samples from posterior, number of simulator calls, log probability of true params if computable
@@ -220,6 +223,14 @@ def run(
         posterior._samples = transforms.inv(samples_adjusted)
 
     samples = posterior.sample((num_samples,)).detach()
+
+    if kde_bandwidth is not None:
+        log.info(
+            f"KDE on {samples.shape[0]} samples with bandwidth option {kde_bandwidth}"
+        )
+        kde = get_kde(samples, bandwidth=kde_bandwidth)
+
+        samples = kde.sample(num_samples)
 
     if num_observation is not None:
         true_parameters = task.get_true_parameters(num_observation=num_observation)

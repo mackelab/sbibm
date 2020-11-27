@@ -44,7 +44,8 @@ def run(
         distance: Distance to use
         batch_size: Batch size for simulator
         save_distances: If True, stores distances of samples to disk
-        kde_bandwidth: If not None, will resample using KDE when necessary
+        kde_bandwidth: If not None, will resample using KDE when necessary, set
+            e.g. to "cv" for cross-validated bandwidth selection
         learn_summary_statistics: If True, summary statistics are learned as in
             Fearnhead & Prangle 2012.
         linear_regression_adjustment: If True, posterior samples are adjusted with
@@ -166,7 +167,7 @@ def run(
         )
         kde = get_kde(samples, bandwidth=kde_bandwidth)
 
-        samples = (kde.sample(num_samples),)
+        samples = kde.sample(num_samples)
     else:
         samples = posterior.sample((num_samples,)).detach()
 

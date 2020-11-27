@@ -73,10 +73,10 @@ def fig_metric(
     keywords["log_y"] = False
     keywords["y_axis"] = alt.Axis(title=metric)
 
-    if metric == "MMD":
+    if "MMD" in metric:
         keywords["y_axis"] = alt.Axis(title="MMD²")
 
-    if metric == "C2ST":
+    if "C2ST" in metric:
         keywords["limits"] = [0.5, 1.0]
 
     if metric == "RT":

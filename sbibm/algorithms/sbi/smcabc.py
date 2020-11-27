@@ -79,7 +79,7 @@ def run(
 
     log = sbibm.get_logger(__name__)
     smc_papers = dict(A="Toni 2010", B="Sisson et al. 2007", C="Beaumont et al. 2009")
-    log.info(f"Running SABC as in {smc_papers[algorithm_variant]}.")
+    log.info(f"Running SMC-ABC as in {smc_papers[algorithm_variant]}.")
 
     prior = task.get_prior_dist()
     simulator = task.get_simulator(max_calls=num_simulations)
@@ -91,20 +91,20 @@ def run(
         if num_simulations > 10_000:
             population_size = 1000
 
-    population_size = min(population_size, num_simulations)
-
-    initial_round_size = clip_int(
-        value=initial_round_factor * population_size,
-        minimum=population_size,
-        maximum=max(0.5 * num_simulations, population_size),
-    )
-
     if learn_summary_statistics:
-        # Pilot run.
+        # Pilot run
         log.info(f"Pilot run for semi-automatic summary stats.")
 
         num_pilot_simulations = int(num_simulations / 2)
         num_regression_samples = population_size
+
+        population_size = min(population_size, num_pilot_simulations)
+
+        initial_round_size = clip_int(
+            value=initial_round_factor * population_size,
+            minimum=population_size,
+            maximum=max(0.5 * num_pilot_simulations, population_size),
+        )
 
         inference_method = SMCABC(
             simulator=simulator,
@@ -115,11 +115,11 @@ def run(
             kernel=kernel,
             algorithm_variant=algorithm_variant,
         )
-        posterior = inference_method(
+        pilot_posterior = inference_method(
             x_o=observation,
             num_particles=population_size,
             num_initial_pop=initial_round_size,
-            num_simulations=num_pilot_simulations - num_regression_samples,
+            num_simulations=num_pilot_simulations,
             epsilon_decay=epsilon_quantile,
             distance_based_decay=distance_based_decay,
             ess_min=ess_min,
@@ -128,28 +128,37 @@ def run(
             return_summary=False,
         )
 
-        # Regression.
-        theta_pilot = posterior.sample((num_regression_samples,))
-        x_pilot = simulator(theta_pilot)
+        # Regression
+        pilot_theta = pilot_posterior._samples
+        # TODO: Posterior does not return xs, which we would need for
+        # regression adjustment. So we will resimulate, which is
+        # unneccessary. Should ideally change `inference_method` to return xs
+        # if requested instead. This step thus does not count towards budget
+        pilot_x = task.get_simulator(max_calls=None)(pilot_theta)
         sumstats_map = np.zeros((task.dim_data, task.dim_parameters))
-        # Run regression for every parameter separately.
         for parameter_idx in range(task.dim_parameters):
             regression_model = LinearRegression(fit_intercept=True)
-            regression_model.fit(X=x_pilot, y=theta_pilot[:, parameter_idx])
+            regression_model.fit(X=pilot_x, y=pilot_theta[:, parameter_idx])
             sumstats_map[:, parameter_idx] = regression_model.coef_
         sumstats_map = torch.tensor(sumstats_map, dtype=torch.float32)
 
-        # Change simulator and observation.
         def sumstats_transform(x):
             return x.mm(sumstats_map)
 
         sumstats_simulator = lambda theta: sumstats_transform(simulator(theta))
         observation = sumstats_transform(observation)
         log.info(f"Finished learning summary statistics.")
-
     else:
-        num_pilot_simulations = 0
         sumstats_simulator = simulator
+        num_pilot_simulations = 0
+
+        population_size = min(population_size, num_simulations)
+
+        initial_round_size = clip_int(
+            value=initial_round_factor * population_size,
+            minimum=population_size,
+            maximum=max(0.5 * num_simulations, population_size),
+        )
 
     inference_method = SMCABC(
         simulator=sumstats_simulator,
@@ -200,11 +209,7 @@ def run(
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 
-        samples_adjusted = transforms.inv(samples_adjusted)
-
-        posterior = Empirical(
-            samples_adjusted, log_weights=torch.ones(samples_adjusted.shape[0])
-        )
+        posterior._samples = transforms.inv(samples_adjusted)
 
     samples = posterior.sample((num_samples,)).detach()
 

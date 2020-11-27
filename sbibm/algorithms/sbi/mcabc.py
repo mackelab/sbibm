@@ -66,12 +66,9 @@ def run(
         observation = task.get_observation(num_observation)
 
     if learn_summary_statistics:
-        # Pilot run.
+        # Pilot run
         log.info(f"Pilot run for semi-automatic summary stats.")
-
-        num_pilot_budget = int(num_simulations / 2)
-        num_regression_samples = num_top_samples
-        num_pilot_simulations = num_pilot_budget - num_regression_samples
+        num_pilot_simulations = int(num_simulations / 2)
         if num_top_samples is not None and quantile is None:
             quantile = num_top_samples / num_pilot_simulations
 
@@ -89,11 +86,15 @@ def run(
             quantile=quantile,
             return_distances=False,
         )
-        # Regression.
-        pilot_theta = pilot_posterior.sample((num_regression_samples,))
-        pilot_x = simulator(pilot_theta)
+
+        # Regression
+        pilot_theta = pilot_posterior._samples
+        # TODO: Posterior does not return xs, which we would need for
+        # regression adjustment. So we will resimulate, which is
+        # unneccessary. Should ideally change `inference_method` to return xs
+        # if requested instead. This step thus does not count towards budget
+        pilot_x = task.get_simulator(max_calls=None)(pilot_theta)
         sumstats_map = np.zeros((task.dim_data, task.dim_parameters))
-        # Run regression for every parameter separately.
         for parameter_idx in range(task.dim_parameters):
             regression_model = LinearRegression(fit_intercept=True)
             regression_model.fit(X=pilot_x, y=pilot_theta[:, parameter_idx])
@@ -108,7 +109,8 @@ def run(
         log.info(f"Finished learning summary statistics.")
     else:
         sumstats_simulator = simulator
-        num_pilot_budget = 0
+        num_pilot_simulations = 0
+
         # SBI takes only quantile or eps. Derive quantile from num_top_samples if needed.
         if num_top_samples is not None and quantile is None:
             quantile = num_top_samples / num_simulations
@@ -122,7 +124,7 @@ def run(
     )
     posterior, distances = inference_method(
         x_o=observation,
-        num_simulations=num_simulations - num_pilot_budget,
+        num_simulations=num_simulations - num_pilot_simulations,
         eps=eps,
         quantile=quantile,
         return_distances=True,
@@ -139,7 +141,7 @@ def run(
         # TODO: Posterior does not return xs, which we would need for
         # regression adjustment. So we will resimulate, which is
         # unneccessary. Should ideally change `inference_method` to return xs
-        # if requested instead.
+        # if requested instead. This step thus does not count towards budget
         xs = task.get_simulator(max_calls=None)(samples)
 
         # NOTE: If posterior is bounded we should do the regression in
@@ -154,11 +156,7 @@ def run(
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 
-        samples_adjusted = transforms.inv(samples_adjusted)
-
-        posterior = Empirical(
-            samples_adjusted, log_weights=torch.ones(samples_adjusted.shape[0])
-        )
+        posterior._samples = transforms.inv(samples_adjusted)
 
     if kde_bandwidth is not None:
         samples = posterior._samples

@@ -60,7 +60,6 @@ def sass(theta, x, expansion_degree=1, sample_weight=None):
     # Transform x, remove intercept.
     x_expanded = expansion.fit_transform(x)
 
-    print(x.shape, x_expanded.shape)
     for parameter_idx in range(theta.shape[1]):
         regression_model = LinearRegression(fit_intercept=True)
         regression_model.fit(

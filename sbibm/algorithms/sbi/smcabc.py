@@ -10,7 +10,7 @@ import sbibm
 from sbibm.tasks.task import Task
 from sbibm.utils.kde import get_kde
 
-from .utils import clip_int
+from .utils import clip_int, sass
 
 
 def run(
@@ -32,6 +32,7 @@ def run(
     algorithm_variant: str = "C",
     save_summary: bool = False,
     learn_summary_statistics: bool = False,
+    feature_expansion_degree: int = 1,
     linear_regression_adjustment: bool = False,
     kde_bandwidth: Optional[str] = None,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
@@ -69,6 +70,8 @@ def run(
             etc. to file.
         learn_summary_statistics: If True, summary statistics are learned as in
             Fearnhead & Prangle 2012.
+        feature_expansion_degree: Degree of polynomial expansion of the summary
+            statistics.
         linear_regression_adjustment: If True, posterior samples are adjusted with
             linear regression as in Beaumont et al. 2002.
         kde_bandwidth: If not None, will resample using KDE when necessary, set
@@ -137,20 +140,14 @@ def run(
         # unneccessary. Should ideally change `inference_method` to return xs
         # if requested instead. This step thus does not count towards budget
         pilot_x = task.get_simulator(max_calls=None)(pilot_theta)
-        sumstats_map = np.zeros((task.dim_data, task.dim_parameters))
 
-        for parameter_idx in range(task.dim_parameters):
-            regression_model = LinearRegression(fit_intercept=True)
-            regression_model.fit(
-                X=pilot_x,
-                y=pilot_theta[:, parameter_idx],
-                sample_weight=pilot_posterior._log_weights.exp(),
-            )
-            sumstats_map[:, parameter_idx] = regression_model.coef_
-        sumstats_map = torch.tensor(sumstats_map, dtype=torch.float32)
-
-        def sumstats_transform(x):
-            return x.mm(sumstats_map)
+        # Run SASS with weights.
+        sumstats_transform = sass(
+            theta=pilot_theta,
+            x=pilot_x,
+            degree=feature_expansion_degree,
+            sample_weight=pilot_posterior._log_weights.exp(),
+        )
 
         sumstats_simulator = lambda theta: sumstats_transform(simulator(theta))
         observation = sumstats_transform(observation)

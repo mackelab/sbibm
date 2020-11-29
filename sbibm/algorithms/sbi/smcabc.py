@@ -145,7 +145,7 @@ def run(
         sumstats_transform = sass(
             theta=pilot_theta,
             x=pilot_x,
-            degree=feature_expansion_degree,
+            expansion_degree=feature_expansion_degree,
             sample_weight=pilot_posterior._log_weights.exp(),
         )
 

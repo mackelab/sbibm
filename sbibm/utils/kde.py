@@ -19,6 +19,7 @@ def get_kde(
     bandwidth: str = "cv",
     transform: transform_types = None,
     verbose: bool = True,
+    sample_weight: Optional[np.ndarray] = None,
 ) -> KernelDensity:
     """Get KDE estimator with selected bandwidth
 
@@ -26,6 +27,7 @@ def get_kde(
         X: Samples
         bandwidth: Bandwidth method
         transform: Optional transform
+        sample_weight: Sample weights attached to the data 
         verbose: Verbosity level
 
     References:
@@ -110,7 +112,7 @@ def get_kde(
         metric_params=metric_params,
         bandwidth=bandwidth_selected,
     )
-    kde.fit(X)
+    kde.fit(X, sample_weight=sample_weight)
 
     return KDEWrapper(kde, transform)
 

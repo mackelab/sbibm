@@ -35,7 +35,7 @@ def run(
     feature_expansion_degree: int = 1,
     linear_regression_adjustment: bool = False,
     kde_bandwidth: Optional[str] = None,
-    kde_weight_samples: bool = False,
+    kde_sample_weights: bool = False,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs SMC-ABC from `sbi`
 
@@ -77,7 +77,7 @@ def run(
             linear regression as in Beaumont et al. 2002.
         kde_bandwidth: If not None, will resample using KDE when necessary, set
             e.g. to "cv" for cross-validated bandwidth selection
-        kde_weight_samples: Whether to weigh KDE samples
+        kde_sample_weights: Whether to weigh KDE samples
 
 
     Returns:
@@ -230,7 +230,7 @@ def run(
             f"KDE on {samples.shape[0]} samples with bandwidth option {kde_bandwidth}"
         )
 
-        if not kde_weight_samples:
+        if not kde_sample_weights:
             kde = get_kde(samples, bandwidth=kde_bandwidth,)
         else:
             kde = get_kde(

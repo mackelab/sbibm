@@ -220,15 +220,19 @@ def run(
 
         posterior._samples = transforms.inv(samples_adjusted)
 
-    samples = posterior.sample((num_samples,)).detach()
-
     if kde_bandwidth is not None:
+        samples = posterior._samples
+
         log.info(
             f"KDE on {samples.shape[0]} samples with bandwidth option {kde_bandwidth}"
         )
-        kde = get_kde(samples, bandwidth=kde_bandwidth)
+        kde = get_kde(
+            samples, bandwidth=kde_bandwidth, sample_weight=posterior._log_weights.exp()
+        )
 
         samples = kde.sample(num_samples)
+    else:
+        samples = posterior.sample((num_samples,)).detach()
 
     if num_observation is not None:
         true_parameters = task.get_true_parameters(num_observation=num_observation)

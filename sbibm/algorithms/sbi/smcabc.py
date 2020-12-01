@@ -31,10 +31,10 @@ def run(
     algorithm_variant: str = "C",
     save_summary: bool = False,
     learn_summary_statistics: bool = False,
-    learn_summary_statistics_sample_weights: bool = False,
+    learn_summary_statistics_sample_weights: bool = True,
     feature_expansion_degree: int = 1,
     linear_regression_adjustment: bool = False,
-    linear_regression_adjustment_sample_weights: bool = False,
+    linear_regression_adjustment_sample_weights: bool = True,
     kde_bandwidth: Optional[str] = None,
     kde_sample_weights: bool = False,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:

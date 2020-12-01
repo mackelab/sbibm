@@ -31,6 +31,7 @@ def run(
     algorithm_variant: str = "C",
     save_summary: bool = False,
     learn_summary_statistics: bool = False,
+    learn_summary_statistics_sample_weights: bool = False,
     feature_expansion_degree: int = 1,
     linear_regression_adjustment: bool = False,
     linear_regression_adjustment_sample_weights: bool = False,
@@ -56,8 +57,8 @@ def run(
         epsilon_quantile: Decay for epsilon
         distance_based_decay: Whether to determine new epsilon from quantile of
             distances of the previous population.
-        ess_min: Threshold for resampling a population if effective sampling size is too
-            small.
+        ess_min: Threshold for resampling a population if effective sampling size is 
+            too small.
         initial_round_factor: Used to determine initial round size
         batch_size: Batch size for the simulator
         kernel: Kernel distribution used to perturb the particles.
@@ -71,6 +72,7 @@ def run(
             etc. to file.
         learn_summary_statistics: If True, summary statistics are learned as in
             Fearnhead & Prangle 2012.
+        learn_summary_statistics_sample_weights: Whether to weigh SASS samples
         feature_expansion_degree: Degree of polynomial expansion of the summary
             statistics.
         linear_regression_adjustment: If True, posterior samples are adjusted with
@@ -150,7 +152,9 @@ def run(
             theta=pilot_theta,
             x=pilot_x,
             expansion_degree=feature_expansion_degree,
-            sample_weight=pilot_posterior._log_weights.exp(),
+            sample_weight=pilot_posterior._log_weights.exp()
+            if learn_summary_statistics_sample_weights
+            else None,
         )
 
         sumstats_simulator = lambda theta: sumstats_transform(simulator(theta))
@@ -218,7 +222,6 @@ def run(
             regression_model.fit(
                 X=xs,
                 y=samples[:, parameter_idx],
-                # Maybe pass SMC weights.
                 sample_weight=posterior._log_weights.exp()
                 if linear_regression_adjustment_sample_weights
                 else None,
@@ -227,15 +230,17 @@ def run(
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 
-        # Inverse Transform.
+        # Inverse Transform
         samples_adjusted = transforms.inv(samples_adjusted)
-        # Update SMC weights with LRA adjusted weights.
+
+        # Update SMC weights with LRA adjusted weights
         new_log_weights = inference_method._calculate_new_log_weights(
             new_particles=samples_adjusted,
             old_particles=samples,
             old_log_weights=posterior._log_weights,
         )
-        # Update posterior.
+
+        # Update posterior
         posterior._samples = samples_adjusted
         posterior._log_weights = new_log_weights
 
@@ -249,7 +254,6 @@ def run(
         kde = get_kde(
             samples,
             bandwidth=kde_bandwidth,
-            # Maybe pass SMC weights.
             sample_weight=posterior._log_weights.exp() if kde_sample_weights else None,
         )
         samples = kde.sample(num_samples)

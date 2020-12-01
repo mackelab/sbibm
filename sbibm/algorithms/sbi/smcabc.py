@@ -1,11 +1,9 @@
 from typing import Optional, Tuple
 
-import numpy as np
 import pandas as pd
 import torch
 from sbi.inference import SMCABC
 from sklearn.linear_model import LinearRegression
-from pyro.distributions import Empirical
 
 import sbibm
 from sbibm.tasks.task import Task
@@ -238,8 +236,9 @@ def run(
             old_particles=samples,
             old_log_weights=posterior._log_weights,
         )
-        # Define new posterior.
-        posterior = Empirical(samples=samples_adjusted, log_weights=new_log_weights)
+        # Update posterior.
+        posterior._samples = samples_adjusted
+        posterior._log_weights = new_log_weights
 
     if kde_bandwidth is not None:
         samples = posterior._samples

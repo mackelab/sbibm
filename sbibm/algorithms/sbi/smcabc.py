@@ -34,6 +34,7 @@ def run(
     learn_summary_statistics: bool = False,
     feature_expansion_degree: int = 1,
     linear_regression_adjustment: bool = False,
+    linear_regression_adjustment_sample_weights: bool = False,
     kde_bandwidth: Optional[str] = None,
     kde_sample_weights: bool = False,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
@@ -75,6 +76,7 @@ def run(
             statistics.
         linear_regression_adjustment: If True, posterior samples are adjusted with
             linear regression as in Beaumont et al. 2002.
+        linear_regression_adjustment_sample_weights: Whether to weigh LRA samples
         kde_bandwidth: If not None, will resample using KDE when necessary, set
             e.g. to "cv" for cross-validated bandwidth selection
         kde_sample_weights: Whether to weigh KDE samples
@@ -213,11 +215,17 @@ def run(
         samples_adjusted = transforms(samples)
         for parameter_idx in range(task.dim_parameters):
             regression_model = LinearRegression(fit_intercept=True)
-            regression_model.fit(
-                X=xs,
-                y=samples[:, parameter_idx],
-                sample_weight=posterior._log_weights.exp(),
-            )
+
+            if linear_regression_adjustment_sample_weights:
+                regression_model.fit(
+                    X=xs,
+                    y=samples[:, parameter_idx],
+                    sample_weight=posterior._log_weights.exp(),
+                )
+            else:
+                regression_model.fit(
+                    X=xs, y=samples[:, parameter_idx],
+                )
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 

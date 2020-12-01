@@ -5,6 +5,7 @@ import pandas as pd
 import torch
 from sbi.inference import SMCABC
 from sklearn.linear_model import LinearRegression
+from pyro.distributions import Empirical
 
 import sbibm
 from sbibm.tasks.task import Task
@@ -229,7 +230,16 @@ def run(
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 
-        posterior._samples = transforms.inv(samples_adjusted)
+        # Inverse Transform.
+        samples_adjusted = transforms.inv(samples_adjusted)
+        # Update SMC weights with LRA adjusted weights.
+        new_log_weights = inference_method._calculate_new_log_weights(
+            new_particles=samples_adjusted,
+            old_particles=samples,
+            old_log_weights=posterior._log_weights,
+        )
+        # Define new posterior.
+        posterior = Empirical(samples=samples_adjusted, log_weights=new_log_weights)
 
     if kde_bandwidth is not None:
         samples = posterior._samples

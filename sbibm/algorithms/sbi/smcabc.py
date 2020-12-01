@@ -215,16 +215,15 @@ def run(
         for parameter_idx in range(task.dim_parameters):
             regression_model = LinearRegression(fit_intercept=True)
 
-            if linear_regression_adjustment_sample_weights:
-                regression_model.fit(
-                    X=xs,
-                    y=samples[:, parameter_idx],
-                    sample_weight=posterior._log_weights.exp(),
-                )
-            else:
-                regression_model.fit(
-                    X=xs, y=samples[:, parameter_idx],
-                )
+            regression_model.fit(
+                X=xs,
+                y=samples[:, parameter_idx],
+                # Maybe pass SMC weights.
+                sample_weight=posterior._log_weights.exp()
+                if linear_regression_adjustment_sample_weights
+                else None,
+            )
+
             samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
             samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
 
@@ -247,14 +246,12 @@ def run(
             f"KDE on {samples.shape[0]} samples with bandwidth option {kde_bandwidth}"
         )
 
-        if not kde_sample_weights:
-            kde = get_kde(samples, bandwidth=kde_bandwidth,)
-        else:
-            kde = get_kde(
-                samples,
-                bandwidth=kde_bandwidth,
-                sample_weight=posterior._log_weights.exp(),
-            )
+        kde = get_kde(
+            samples,
+            bandwidth=kde_bandwidth,
+            # Maybe pass SMC weights.
+            sample_weight=posterior._log_weights.exp() if kde_sample_weights else None,
+        )
         samples = kde.sample(num_samples)
     else:
         samples = posterior.sample((num_samples,)).detach()

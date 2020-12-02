@@ -44,7 +44,7 @@ def clip_int(value, minimum, maximum):
     return value
 
 
-def sass(theta, x, expansion_degree=1, sample_weight=None):
+def get_sass_transform(theta, x, expansion_degree=1, sample_weight=None):
     """Return semi-automatic summary statitics function.
 
     Running weighted linear regressin as in 
@@ -74,3 +74,26 @@ def sass(theta, x, expansion_degree=1, sample_weight=None):
         return x_expanded.mm(sumstats_map)
 
     return sumstats_transform
+
+
+def run_lra(
+    theta: torch.Tensor,
+    x: torch.Tensor,
+    observation: torch.Tensor,
+    sample_weight=None,
+    transforms=None,
+):
+    """Return LRA adjusted parameters."""
+
+    theta_adjusted = transforms(theta)
+    for parameter_idx in range(theta.shape[1]):
+        regression_model = LinearRegression(fit_intercept=True)
+        regression_model.fit(
+            X=x, y=theta[:, parameter_idx], sample_weight=sample_weight,
+        )
+        theta_adjusted[:, parameter_idx] += regression_model.predict(
+            observation.reshape(1, -1)
+        )
+        theta_adjusted[:, parameter_idx] -= regression_model.predict(x)
+
+    return transforms.inv(theta_adjusted)

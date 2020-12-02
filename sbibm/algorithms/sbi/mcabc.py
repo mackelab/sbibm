@@ -1,16 +1,13 @@
 from typing import Optional, Tuple
 
-import numpy as np
 import torch
-from pyro.distributions.empirical import Empirical
 from sbi.inference import MCABC
-from sklearn.linear_model import LinearRegression
 
 import sbibm
 from sbibm.tasks.task import Task
 from sbibm.utils.io import save_tensor_to_csv
 from sbibm.utils.kde import get_kde
-from .utils import sass
+from .utils import get_sass_transform, run_lra
 
 
 def run(
@@ -26,9 +23,10 @@ def run(
     batch_size: int = 1000,
     save_distances: bool = False,
     kde_bandwidth: Optional[str] = None,
-    learn_summary_statistics: bool = False,
-    feature_expansion_degree: int = 1,
-    linear_regression_adjustment: bool = False,
+    sass: bool = False,
+    sass_fraction: float = 0.5,
+    sass_feature_expansion_degree: int = 1,
+    lra: bool = False,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs REJ-ABC from `sbi`
 
@@ -48,11 +46,12 @@ def run(
         save_distances: If True, stores distances of samples to disk
         kde_bandwidth: If not None, will resample using KDE when necessary, set
             e.g. to "cv" for cross-validated bandwidth selection
-        learn_summary_statistics: If True, summary statistics are learned as in
+        sass: If True, summary statistics are learned as in
             Fearnhead & Prangle 2012.
-        feature_expansion_degree: Degree of polynomial expansion of the summary
+        sass_fraction: Fraction of simulation budget to use for sass.
+        sass_feature_expansion_degree: Degree of polynomial expansion of the summary
             statistics.
-        linear_regression_adjustment: If True, posterior samples are adjusted with
+        lra: If True, posterior samples are adjusted with
             linear regression as in Beaumont et al. 2002.
     Returns:
         Samples from posterior, number of simulator calls, log probability of true params if computable
@@ -70,10 +69,10 @@ def run(
     if observation is None:
         observation = task.get_observation(num_observation)
 
-    if learn_summary_statistics:
+    if sass:
         # Pilot run
         log.info(f"Pilot run for semi-automatic summary stats.")
-        num_pilot_simulations = int(num_simulations / 2)
+        num_pilot_simulations = int(sass_fraction * num_simulations)
         if num_top_samples is not None and quantile is None:
             quantile = num_top_samples / num_pilot_simulations
 
@@ -100,10 +99,10 @@ def run(
         # if requested instead. This step thus does not count towards budget
         pilot_x = task.get_simulator(max_calls=None)(pilot_theta)
 
-        sumstats_transform = sass(
+        sumstats_transform = get_sass_transform(
             pilot_theta,
             pilot_x,
-            expansion_degree=feature_expansion_degree,
+            expansion_degree=sass_feature_expansion_degree,
             sample_weight=None,
         )
 
@@ -138,7 +137,7 @@ def run(
     if save_distances:
         save_tensor_to_csv("distances.csv", distances)
 
-    if linear_regression_adjustment:
+    if lra:
         samples = posterior._samples
 
         # TODO: Posterior does not return xs, which we would need for
@@ -152,14 +151,7 @@ def run(
         transform_to_unbounded = True
         transforms = task._get_transforms(transform_to_unbounded)["parameters"]
 
-        samples_adjusted = transforms(samples)
-        for parameter_idx in range(task.dim_parameters):
-            regression_model = LinearRegression(fit_intercept=True)
-            regression_model.fit(X=xs, y=samples[:, parameter_idx])
-            samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
-            samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
-
-        posterior._samples = transforms.inv(samples_adjusted)
+        posterior._samples = run_lra(samples, xs, observation, transforms=transforms)
 
     if kde_bandwidth is not None:
         samples = posterior._samples

@@ -9,7 +9,7 @@ import sbibm
 from sbibm.tasks.task import Task
 from sbibm.utils.kde import get_kde
 
-from .utils import clip_int, sass
+from .utils import clip_int, get_sass_transform, run_lra
 
 
 def run(
@@ -20,7 +20,7 @@ def run(
     observation: Optional[torch.Tensor] = None,
     population_size: Optional[int] = None,
     distance: str = "l2",
-    epsilon_quantile: float = 0.5,
+    epsilon_decay: float = 0.5,
     distance_based_decay: bool = True,
     ess_min: float = 0.5,
     initial_round_factor: int = 5,
@@ -30,11 +30,12 @@ def run(
     use_last_pop_samples: bool = False,
     algorithm_variant: str = "C",
     save_summary: bool = False,
-    learn_summary_statistics: bool = False,
-    learn_summary_statistics_sample_weights: bool = False,
-    feature_expansion_degree: int = 1,
-    linear_regression_adjustment: bool = False,
-    linear_regression_adjustment_sample_weights: bool = True,
+    sass: bool = False,
+    sass_sample_weights: bool = False,
+    sass_fraction: float = 0.5,
+    sass_feature_expansion_degree: int = 1,
+    lra: bool = False,
+    lra_sample_weights: bool = True,
     kde_bandwidth: Optional[str] = None,
     kde_sample_weights: bool = False,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
@@ -54,7 +55,7 @@ def run(
         population_size: If None, uses heuristic: 1000 if `num_simulations` is greater
             than 10k, else 100
         distance: Distance function, options = {l1, l2, mse}
-        epsilon_quantile: Decay for epsilon
+        epsilon_decay: Decay for epsilon; treated as quantile in case of distance based decay.
         distance_based_decay: Whether to determine new epsilon from quantile of
             distances of the previous population.
         ess_min: Threshold for resampling a population if effective sampling size is 
@@ -70,14 +71,15 @@ def run(
             See doctstrings in SBI package for more details.
         save_summary: Whether to save a summary containing all populations, distances,
             etc. to file.
-        learn_summary_statistics: If True, summary statistics are learned as in
+        sass: If True, summary statistics are learned as in
             Fearnhead & Prangle 2012.
-        learn_summary_statistics_sample_weights: Whether to weigh SASS samples
-        feature_expansion_degree: Degree of polynomial expansion of the summary
+        sass_sample_weights: Whether to weigh SASS samples
+        sass_fraction: Fraction of simulation budget to use for sass.
+        sass_feature_expansion_degree: Degree of polynomial expansion of the summary
             statistics.
-        linear_regression_adjustment: If True, posterior samples are adjusted with
+        lra: If True, posterior samples are adjusted with
             linear regression as in Beaumont et al. 2002.
-        linear_regression_adjustment_sample_weights: Whether to weigh LRA samples
+        lra_sample_weights: Whether to weigh LRA samples
         kde_bandwidth: If not None, will resample using KDE when necessary, set
             e.g. to "cv" for cross-validated bandwidth selection
         kde_sample_weights: Whether to weigh KDE samples
@@ -103,11 +105,11 @@ def run(
         if num_simulations > 10_000:
             population_size = 1000
 
-    if learn_summary_statistics:
+    if sass:
         # Pilot run
         log.info(f"Pilot run for semi-automatic summary stats.")
 
-        num_pilot_simulations = int(num_simulations / 2)
+        num_pilot_simulations = int(sass_fraction * num_simulations)
 
         population_size = min(population_size, num_pilot_simulations)
 
@@ -131,7 +133,7 @@ def run(
             num_particles=population_size,
             num_initial_pop=initial_round_size,
             num_simulations=num_pilot_simulations,
-            epsilon_decay=epsilon_quantile,
+            epsilon_decay=epsilon_decay,
             distance_based_decay=distance_based_decay,
             ess_min=ess_min,
             kernel_variance_scale=kernel_variance_scale,
@@ -148,12 +150,12 @@ def run(
         pilot_x = task.get_simulator(max_calls=None)(pilot_theta)
 
         # Run SASS with weights.
-        sumstats_transform = sass(
+        sumstats_transform = get_sass_transform(
             theta=pilot_theta,
             x=pilot_x,
-            expansion_degree=feature_expansion_degree,
+            expansion_degree=sass_feature_expansion_degree,
             sample_weight=pilot_posterior._log_weights.exp()
-            if learn_summary_statistics_sample_weights
+            if sass_sample_weights
             else None,
         )
 
@@ -186,7 +188,7 @@ def run(
         num_particles=population_size,
         num_initial_pop=initial_round_size,
         num_simulations=num_simulations - num_pilot_simulations,
-        epsilon_decay=epsilon_quantile,
+        epsilon_decay=epsilon_decay,
         distance_based_decay=distance_based_decay,
         ess_min=ess_min,
         kernel_variance_scale=kernel_variance_scale,
@@ -200,7 +202,7 @@ def run(
 
     assert simulator.num_simulations == num_simulations
 
-    if linear_regression_adjustment:
+    if lra:
         log.info(f"Running linear regression adjustment.")
         samples = posterior._samples
 
@@ -215,33 +217,24 @@ def run(
         transform_to_unbounded = True
         transforms = task._get_transforms(transform_to_unbounded)["parameters"]
 
-        samples_adjusted = transforms(samples)
-        for parameter_idx in range(task.dim_parameters):
-            regression_model = LinearRegression(fit_intercept=True)
-
-            regression_model.fit(
-                X=xs,
-                y=samples[:, parameter_idx],
-                sample_weight=posterior._log_weights.exp()
-                if linear_regression_adjustment_sample_weights
-                else None,
-            )
-
-            samples_adjusted[:, parameter_idx] += regression_model.predict(observation)
-            samples_adjusted[:, parameter_idx] -= regression_model.predict(xs)
-
-        # Inverse Transform
-        samples_adjusted = transforms.inv(samples_adjusted)
+        # Adjust with LRA.
+        lra_samples = run_lra(
+            samples,
+            xs,
+            observation,
+            sample_weight=posterior._log_weights.exp() if lra_sample_weights else None,
+            transforms=transforms,
+        )
 
         # Update SMC weights with LRA adjusted weights
         new_log_weights = inference_method._calculate_new_log_weights(
-            new_particles=samples_adjusted,
+            new_particles=lra_samples,
             old_particles=samples,
             old_log_weights=posterior._log_weights,
         )
 
         # Update posterior
-        posterior._samples = samples_adjusted
+        posterior._samples = lra_samples
         posterior._log_weights = new_log_weights
 
     if kde_bandwidth is not None:

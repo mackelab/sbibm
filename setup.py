@@ -27,7 +27,7 @@ REQUIRED = [
     "numpy",
     "matplotlib",
     "pandas>=1.0.0",
-    "pyabc>=0.10.7",
+    "pyabc>=0.10.8",
     "pyabcranger>=0.0.48",
     "sbi==0.13.2",
     "pyro-ppl",

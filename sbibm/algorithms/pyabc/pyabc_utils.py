@@ -1,9 +1,10 @@
 import logging
-from typing import Callable, Dict
+from typing import Callable, Dict, Tuple
 
 import numpy as np
 import pyabc
 import torch
+import sbibm
 
 
 class PyAbcSimulator:
@@ -117,8 +118,7 @@ def get_distance(distance: str) -> Callable:
     elif distance == "l2":
 
         def distance_fun(x, y):
-            sq_diff = (x["data"] - y["data"]) ** 2
-            return np.atleast_1d(sq_diff).mean(axis=-1)
+            return np.linalg.norm(x["data"] - y["data"], axis=-1)
 
     else:
         raise NotImplementedError(f"Distance '{distance}' not implemented.")
@@ -135,3 +135,44 @@ def clip_int(value, minimum, maximum):
     if value > maximum:
         return maximum
     return value
+
+
+def run_pyabc(
+    db, num_simulations: int, observation: np.ndarray, pyabc_kwargs: dict, prior
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Run pyabc SMC with fixed budget and return particles and weights.
+    
+    Return previous population or prior samples if budget is exceeded.
+    """
+    log = sbibm.get_logger(__name__)
+
+    abc = pyabc.ABCSMC(**pyabc_kwargs)
+    abc.new(db, {"data": observation})
+    history = abc.run(max_total_nr_simulations=num_simulations)
+    num_calls = history.total_nr_simulations
+
+    # We allow 10% over the budget.
+    if num_calls > num_simulations * 1.1:
+        log.info(
+            f"""pyabc exceeded budget by more than 10 percent, returning previous
+            population or prior samples."""
+        )
+        if history.max_t > 0:
+            # Return previous population.
+            (particles_df, weights) = history.get_distribution(t=history.max_t - 1)
+            particles = torch.as_tensor(particles_df.values, dtype=torch.float32)
+            weights = torch.as_tensor(weights, dtype=torch.float32)
+        else:
+            # Return prior samples.
+            population_size = pyabc_kwargs["population_size"]
+            log.info(f"pyabc exceeded budget in initial run. Returning prior samples!")
+            log.info(f"Sampling {population_size} samples from prior")
+            particles = prior(num_samples=population_size)
+            weights = torch.ones(population_size) / population_size
+    else:
+        # Return current population.
+        (particles_df, weights) = history.get_distribution(t=history.max_t)
+        particles = torch.as_tensor(particles_df.values, dtype=torch.float32)
+        weights = torch.as_tensor(weights, dtype=torch.float32)
+
+    return particles, weights

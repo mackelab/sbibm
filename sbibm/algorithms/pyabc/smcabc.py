@@ -1,25 +1,20 @@
 import os
+import random
 import tempfile
+import time
 from typing import Optional, Tuple
 
 import numpy as np
 import pyabc
-import time
 import torch
 
 import sbibm
+from sbibm.algorithms.sbi.utils import get_sass_transform, run_lra
 from sbibm.tasks.task import Task
+from sbibm.utils.kde import get_kde
 from sbibm.utils.torch import sample_with_weights
 
-from sbibm.utils.kde import get_kde
-from sbibm.algorithms.sbi.utils import run_lra, get_sass_transform
-
-from .pyabc_utils import (
-    PyAbcSimulator,
-    get_distance,
-    wrap_prior,
-    run_pyabc,
-)
+from .pyabc_utils import PyAbcSimulator, get_distance, run_pyabc, wrap_prior
 
 
 def run(
@@ -77,7 +72,9 @@ def run(
     assert not (num_observation is None and observation is None)
     assert not (num_observation is not None and observation is not None)
     log = sbibm.get_logger(__name__)
-    time_flag = time.time()
+    db = "sqlite:///" + os.path.join(
+        tempfile.gettempdir(), f"pyabc_{time.time()}_{random.randint(0, 1e9)}.db"
+    )
 
     # Wrap sbibm prior and simulator for pyABC
     prior = wrap_prior(task)
@@ -136,14 +133,11 @@ def run(
     if sass:
         num_pilot_simulations = int(sass_fraction * num_simulations)
         log.info(f"SASS pilot run with {num_pilot_simulations} simulations.")
-        pilot_db = "sqlite:///" + os.path.join(
-            tempfile.gettempdir(), f"sassrun_{time_flag}.db"
-        )
         kwargs["models"] = [simulator]
 
         # Run pyabc with fixed budget.
         pilot_theta, pilot_weights = run_pyabc(
-            pilot_db,
+            db,
             num_pilot_simulations,
             observation,
             pyabc_kwargs=kwargs,
@@ -185,7 +179,6 @@ def run(
         f"""Running ABC-SMC-pyabc with {num_simulations - num_pilot_simulations}
     simulations"""
     )
-    db = "sqlite:///" + os.path.join(tempfile.gettempdir(), f"pyabc_{time_flag}.db")
     kwargs["models"] = [sumstats_simulator]
 
     # Run pyabc with fixed budget.

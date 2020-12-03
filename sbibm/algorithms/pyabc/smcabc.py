@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pyabc
+import time
 import torch
 
 import sbibm
@@ -76,6 +77,7 @@ def run(
     assert not (num_observation is None and observation is None)
     assert not (num_observation is not None and observation is not None)
     log = sbibm.get_logger(__name__)
+    time_flag = time.time()
 
     # Wrap sbibm prior and simulator for pyABC
     prior = wrap_prior(task)
@@ -134,7 +136,9 @@ def run(
     if sass:
         num_pilot_simulations = int(sass_fraction * num_simulations)
         log.info(f"SASS pilot run with {num_pilot_simulations} simulations.")
-        pilot_db = "sqlite:///" + os.path.join(tempfile.gettempdir(), "sassrun.db")
+        pilot_db = "sqlite:///" + os.path.join(
+            tempfile.gettempdir(), f"sassrun_{time_flag}.db"
+        )
         kwargs["models"] = [simulator]
 
         # Run pyabc with fixed budget.
@@ -181,7 +185,7 @@ def run(
         f"""Running ABC-SMC-pyabc with {num_simulations - num_pilot_simulations}
     simulations"""
     )
-    db = "sqlite:///" + os.path.join(tempfile.gettempdir(), "test.db")
+    db = "sqlite:///" + os.path.join(tempfile.gettempdir(), f"pyabc_{time_flag}.db")
     kwargs["models"] = [sumstats_simulator]
 
     # Run pyabc with fixed budget.

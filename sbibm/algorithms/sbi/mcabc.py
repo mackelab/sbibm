@@ -24,7 +24,7 @@ def run(
     save_distances: bool = False,
     kde_bandwidth: Optional[str] = None,
     sass: bool = False,
-    sass_fraction: float = 0.5,
+    sass_fraction: float = 0.25,
     sass_feature_expansion_degree: int = 1,
     lra: bool = False,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
@@ -69,56 +69,16 @@ def run(
     if observation is None:
         observation = task.get_observation(num_observation)
 
-    if sass:
-        # Pilot run
-        log.info(f"Pilot run for semi-automatic summary stats.")
-        num_pilot_simulations = int(sass_fraction * num_simulations)
-        if num_top_samples is not None and quantile is None:
-            quantile = num_top_samples / num_pilot_simulations
-
-        inference_method = MCABC(
-            simulator=simulator,
-            prior=prior,
-            simulation_batch_size=batch_size,
-            distance=distance,
-            show_progress_bars=True,
-        )
-        pilot_posterior = inference_method(
-            x_o=observation,
-            num_simulations=num_pilot_simulations,
-            eps=None,
-            quantile=quantile,
-            return_distances=False,
-        )
-
-        # Regression
-        pilot_theta = pilot_posterior._samples
-        # TODO: Posterior does not return xs, which we would need for
-        # regression adjustment. So we will resimulate, which is
-        # unneccessary. Should ideally change `inference_method` to return xs
-        # if requested instead. This step thus does not count towards budget
-        pilot_x = task.get_simulator(max_calls=None)(pilot_theta)
-
-        sumstats_transform = get_sass_transform(
-            pilot_theta,
-            pilot_x,
-            expansion_degree=sass_feature_expansion_degree,
-            sample_weight=None,
-        )
-
-        sumstats_simulator = lambda theta: sumstats_transform(simulator(theta))
-        observation = sumstats_transform(observation)
-        log.info(f"Finished learning summary statistics.")
-    else:
-        sumstats_simulator = simulator
-        num_pilot_simulations = 0
-
-        # SBI takes only quantile or eps. Derive quantile from num_top_samples if needed.
-        if num_top_samples is not None and quantile is None:
+    if num_top_samples is not None and quantile is None:
+        if sass:
+            quantile = num_top_samples / (
+                num_simulations - int(sass_fraction * num_simulations)
+            )
+        else:
             quantile = num_top_samples / num_simulations
 
     inference_method = MCABC(
-        simulator=sumstats_simulator,
+        simulator=simulator,
         prior=prior,
         simulation_batch_size=batch_size,
         distance=distance,
@@ -126,32 +86,20 @@ def run(
     )
     posterior, distances = inference_method(
         x_o=observation,
-        num_simulations=num_simulations - num_pilot_simulations,
+        num_simulations=num_simulations,
         eps=eps,
         quantile=quantile,
         return_distances=True,
+        lra=lra,
+        sass=sass,
+        sass_expansion_degree=sass_feature_expansion_degree,
+        sass_fraction=sass_fraction,
     )
 
     assert simulator.num_simulations == num_simulations
 
     if save_distances:
         save_tensor_to_csv("distances.csv", distances)
-
-    if lra:
-        samples = posterior._samples
-
-        # TODO: Posterior does not return xs, which we would need for
-        # regression adjustment. So we will resimulate, which is
-        # unneccessary. Should ideally change `inference_method` to return xs
-        # if requested instead. This step thus does not count towards budget
-        xs = task.get_simulator(max_calls=None)(samples)
-
-        # NOTE: If posterior is bounded we should do the regression in
-        # unbounded space, as described in https://arxiv.org/abs/1707.01254
-        transform_to_unbounded = True
-        transforms = task._get_transforms(transform_to_unbounded)["parameters"]
-
-        posterior._samples = run_lra(samples, xs, observation, transforms=transforms)
 
     if kde_bandwidth is not None:
         samples = posterior._samples

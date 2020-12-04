@@ -1,6 +1,6 @@
 import logging
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 from sbi import inference as inference
@@ -29,7 +29,7 @@ def run(
     automatic_transforms_enabled: bool = False,
     z_score_x: bool = True,
     z_score_theta: bool = True,
-) -> (torch.Tensor, int, Optional[torch.Tensor]):
+) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs (S)NPE from `sbi`
 
     Args:
@@ -81,38 +81,42 @@ def run(
     prior = wrap_prior_dist(prior, transforms)
     simulator = wrap_simulator_fn(simulator, transforms)
 
-    density_estimator = posterior_nn(
+    density_estimator_fun = posterior_nn(
         model=neural_net.lower(),
         hidden_features=hidden_features,
         z_score_x=z_score_x,
         z_score_theta=z_score_theta,
     )
-    inference_method = inference.SNPE_C(
-        simulator=simulator,
-        prior=prior,
-        simulation_batch_size=simulation_batch_size,
-        density_estimator=density_estimator,
-        show_round_summary=True,
-        sample_with_mcmc=False,
-        use_combined_loss=False,
-    )
 
+    inference_method = inference.SNPE_C(prior, density_estimator=density_estimator_fun)
     posteriors = []
-    proposal = None
+    proposal = prior
+
     for _ in range(num_rounds):
-        posterior = inference_method(
+        theta, x = inference.simulate_for_sbi(
+            simulator,
+            proposal,
             num_simulations=num_simulations_per_round,
-            proposal=proposal,
+            simulation_batch_size=simulation_batch_size,
+        )
+
+        density_estimator = inference_method.append_simulations(
+            theta, x, proposal=proposal
+        ).train(
             num_atoms=num_atoms,
             training_batch_size=training_batch_size,
             retrain_from_scratch_each_round=False,
             discard_prior_samples=False,
+            use_combined_loss=False,
+            show_train_summary=True,
         )
-        posterior.set_default_x(observation)
-        proposal = posterior
+        posterior = inference_method.build_posterior(
+            density_estimator, sample_with_mcmc=False
+        )
+        proposal = posterior.set_default_x(observation)
         posteriors.append(posterior)
 
-    posterior = wrap_posterior(posterior, transforms)
+    posterior = wrap_posterior(posteriors[-1], transforms)
 
     assert simulator.num_simulations == num_simulations
 

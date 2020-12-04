@@ -1,6 +1,6 @@
 import logging
 import math
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 from sbi import inference as inference
@@ -37,7 +37,7 @@ def run(
     },
     z_score_x: bool = True,
     z_score_theta: bool = True,
-) -> (torch.Tensor, int, Optional[torch.Tensor]):
+) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs (S)NLE from `sbi`
 
     Args:
@@ -90,39 +90,48 @@ def run(
     prior = wrap_prior_dist(prior, transforms)
     simulator = wrap_simulator_fn(simulator, transforms)
 
-    density_estimator = likelihood_nn(
+    density_estimator_fun = likelihood_nn(
         model=neural_net.lower(),
         hidden_features=hidden_features,
         z_score_x=z_score_x,
         z_score_theta=z_score_theta,
     )
     inference_method = inference.SNLE_A(
-        density_estimator=density_estimator,
-        simulator=simulator,
-        prior=prior,
-        mcmc_method=mcmc_method,
-        mcmc_parameters=mcmc_parameters,
-        simulation_batch_size=simulation_batch_size,
-        show_round_summary=True,
+        density_estimator=density_estimator_fun, prior=prior,
     )
 
     posteriors = []
-    proposal = None
+    proposal = prior
+    mcmc_parameters["warmup_steps"] = 25
+
     for r in range(num_rounds):
-        posterior = inference_method(
+        theta, x = inference.simulate_for_sbi(
+            simulator,
+            proposal,
             num_simulations=num_simulations_per_round,
-            proposal=proposal,
-            training_batch_size=training_batch_size,
+            simulation_batch_size=simulation_batch_size,
         )
-        posterior.set_default_x(observation)
-        mcmc_parameters["warmup_steps"] = 25
+
+        density_estimator = inference_method.append_simulations(
+            theta, x, from_round=r
+        ).train(
+            training_batch_size=training_batch_size,
+            retrain_from_scratch_each_round=False,
+            discard_prior_samples=False,
+            show_train_summary=True,
+        )
         if r > 1:
             mcmc_parameters["init_strategy"] = "latest_sample"
-            posterior.set_mcmc_parameters(mcmc_parameters)
-        proposal = posterior
+        posterior = inference_method.build_posterior(
+            density_estimator, mcmc_method=mcmc_method, mcmc_parameters=mcmc_parameters
+        )
+        # Copy hyperparameters, e.g., mcmc_init_samples for "latest_sample" strategy.
+        if r > 0:
+            posterior.copy_hyperparameters_from(posteriors[-1])
+        proposal = posterior.set_default_x(observation)
         posteriors.append(posterior)
 
-    posterior = wrap_posterior(posterior, transforms)
+    posterior = wrap_posterior(posteriors[-1], transforms)
 
     assert simulator.num_simulations == num_simulations
 

@@ -1,10 +1,13 @@
 import logging
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Tuple, Optional
 
 import numpy as np
 import pyabc
 import torch
 import sbibm
+
+from sbi.inference import MCABC
+from sbibm.tasks.task import Task
 
 
 class PyAbcSimulator:
@@ -138,7 +141,14 @@ def clip_int(value, minimum, maximum):
 
 
 def run_pyabc(
-    db, num_simulations: int, observation: np.ndarray, pyabc_kwargs: dict, prior
+    task: Task,
+    db,
+    num_simulations: int,
+    observation: np.ndarray,
+    pyabc_kwargs: dict,
+    distance_str: str = "l2",
+    batch_size: int = 1000,
+    use_last_pop_samples: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Run pyabc SMC with fixed budget and return particles and weights.
     
@@ -151,28 +161,87 @@ def run_pyabc(
     history = abc.run(max_total_nr_simulations=num_simulations)
     num_calls = history.total_nr_simulations
 
-    # We allow 10% over the budget.
-    if num_calls > num_simulations * 1.1:
-        log.info(
-            f"""pyabc exceeded budget by more than 10 percent, returning previous
-            population or prior samples."""
-        )
-        if history.max_t > 0:
-            # Return previous population.
-            (particles_df, weights) = history.get_distribution(t=history.max_t - 1)
-            particles = torch.as_tensor(particles_df.values, dtype=torch.float32)
-            weights = torch.as_tensor(weights, dtype=torch.float32)
-        else:
-            # Return prior samples.
-            population_size = pyabc_kwargs["population_size"]
-            log.info(f"pyabc exceeded budget in initial run. Returning prior samples!")
-            log.info(f"Sampling {population_size} samples from prior")
-            particles = prior(num_samples=population_size)
-            weights = torch.ones(population_size) / population_size
-    else:
-        # Return current population.
+    if num_calls < 1.0 * num_simulations:
         (particles_df, weights) = history.get_distribution(t=history.max_t)
         particles = torch.as_tensor(particles_df.values, dtype=torch.float32)
         weights = torch.as_tensor(weights, dtype=torch.float32)
+    else:
+        if history.max_t > 0:
+            log.info(
+                f"Last population exceeded budget by {num_calls - num_simulations}."
+            )
+            (particles_df, weights) = history.get_distribution(t=history.max_t - 1)
+            old_particles = torch.as_tensor(particles_df.values, dtype=torch.float32)
+            old_weights = torch.as_tensor(weights, dtype=torch.float32)
+            if use_last_pop_samples:
+                df = history.get_all_populations()
+                num_calls_last_pop = df.samples.values[-1]
+                over_budget = num_calls - num_simulations
+                proportion_over_budget = over_budget / num_calls_last_pop
+                # The proportion over budget needs to be replaced with old particles.
+                num_old_particles = int(
+                    np.ceil(proportion_over_budget * pyabc_kwargs["population_size"])
+                )
+                log.info(
+                    f"Filling up with {num_old_particles+1} samples from previous population."
+                )
+                # Combining populations.
+                (particles_df, weights) = history.get_distribution(t=history.max_t)
+                new_particles = torch.as_tensor(
+                    particles_df.values, dtype=torch.float32
+                )
+                new_weights = torch.as_tensor(weights, dtype=torch.float32)
+
+                particles = torch.zeros_like(old_particles)
+                weights = torch.zeros_like(old_weights)
+                particles[:num_old_particles] = old_particles[:num_old_particles]
+                particles[num_old_particles:] = new_particles[num_old_particles:]
+                weights[:num_old_particles] = old_weights[:num_old_particles]
+                weights[num_old_particles:] = new_weights[num_old_particles:]
+                # Normalize combined weights.
+                weights /= weights.sum()
+            else:
+                log.info("Returning previous population.")
+                particles = old_particles
+                weights = old_weights
+        else:
+            log.info("Running REJABC because first population exceeded budget.")
+            posterior, _ = run_rejection_abc(
+                task,
+                num_simulations,
+                pyabc_kwargs["population_size"],
+                observation=torch.tensor(observation, dtype=torch.float32),
+                distance=distance_str,
+                batch_size=batch_size,
+            )
+            particles = posterior._samples
+            weights = posterior._log_weights.exp()
 
     return particles, weights
+
+
+def run_rejection_abc(
+    task: Task,
+    num_simulations: int,
+    population_size: int,
+    observation: Optional[torch.Tensor] = None,
+    distance: str = "l2",
+    batch_size: int = 1000,
+):
+    """Return posterior and distances from a ABC with fixed budget."""
+
+    inferer = MCABC(
+        simulator=task.get_simulator(max_calls=num_simulations),
+        prior=task.get_prior_dist(),
+        simulation_batch_size=batch_size,
+        distance=distance,
+        show_progress_bars=True,
+    )
+    posterior, distances = inferer(
+        x_o=observation,
+        num_simulations=num_simulations,
+        eps=None,
+        quantile=population_size / num_simulations,
+        return_distances=True,
+    )
+    return posterior, distances

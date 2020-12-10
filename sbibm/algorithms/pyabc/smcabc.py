@@ -9,12 +9,18 @@ import pyabc
 import torch
 
 import sbibm
-from sbibm.algorithms.sbi.utils import get_sass_transform, run_lra
+from sbibm.algorithms.sbi.utils import get_sass_transform, run_lra, clip_int
 from sbibm.tasks.task import Task
 from sbibm.utils.kde import get_kde
 from sbibm.utils.torch import sample_with_weights
 
-from .pyabc_utils import PyAbcSimulator, get_distance, run_pyabc, wrap_prior
+from .pyabc_utils import (
+    PyAbcSimulator,
+    get_distance,
+    run_pyabc,
+    wrap_prior,
+    run_rejection_abc,
+)
 
 
 def run(
@@ -25,6 +31,8 @@ def run(
     observation: Optional[torch.Tensor] = None,
     population_size: Optional[int] = None,
     distance: Optional[str] = "l2",
+    initial_round_factor: int = 5,
+    batch_size: int = 1000,
     epsilon_decay: Optional[float] = 0.5,
     kernel: Optional[str] = "gaussian",
     kernel_variance_scale: Optional[float] = 0.5,
@@ -79,27 +87,43 @@ def run(
     # Wrap sbibm prior and simulator for pyABC
     prior = wrap_prior(task)
     simulator = PyAbcSimulator(task)
+    distance_str = distance
 
-    distance = get_distance(distance)
     if observation is None:
         observation = task.get_observation(num_observation)
-    observation = np.atleast_1d(np.array(observation, dtype=float).squeeze())
-
-    # Epsilon schedule
-    epsilon = pyabc.epsilon.QuantileEpsilon(
-        initial_epsilon="from_sample", alpha=epsilon_decay
-    )
-
-    # Perturbation kernel
-    transition = pyabc.transition.MultivariateNormalTransition(
-        scaling=kernel_variance_scale
-    )
 
     # Population size strategy
     if population_size is None:
         population_size = 100
         if num_simulations > 10_000:
             population_size = 1000
+
+    # Find initial epsilon with rej abc run.
+    initial_round_size = clip_int(
+        value=initial_round_factor * population_size,
+        minimum=population_size,
+        maximum=max(0.5 * num_simulations, population_size),
+    )
+    log.info(
+        f"Running REJ-ABC with {initial_round_size} samples to find initial epsilon."
+    )
+    _, distances = run_rejection_abc(
+        task, initial_round_size, population_size, observation, distance_str, batch_size
+    )
+    initial_epsilon = distances[-1].item()
+
+    # Wrap observation and distance for pyabc.
+    distance = get_distance(distance_str)
+    observation = np.atleast_1d(np.array(observation, dtype=float).squeeze())
+    # Define quantile based epsilon decay.
+    epsilon = pyabc.epsilon.QuantileEpsilon(
+        initial_epsilon=initial_epsilon, alpha=epsilon_decay
+    )
+
+    # Perturbation kernel
+    transition = pyabc.transition.MultivariateNormalTransition(
+        scaling=kernel_variance_scale
+    )
 
     population_size = min(population_size, num_simulations)
 
@@ -117,7 +141,7 @@ def run(
     if num_workers > 1:
         sampler = pyabc.sampler.MulticoreParticleParallelSampler(n_procs=num_workers)
     else:
-        sampler = pyabc.sampler.SingleCoreSampler()
+        sampler = pyabc.sampler.SingleCoreSampler(check_max_eval=False)
 
     # Collect kwargs
     kwargs = dict(
@@ -137,11 +161,14 @@ def run(
 
         # Run pyabc with fixed budget.
         pilot_theta, pilot_weights = run_pyabc(
+            task,
             db,
             num_pilot_simulations,
             observation,
             pyabc_kwargs=kwargs,
-            prior=task.get_prior(),
+            use_last_pop_samples=use_last_pop_samples,
+            distance_str=distance_str,
+            batch_size=batch_size,
         )
 
         # Regression
@@ -176,18 +203,22 @@ def run(
         population_size = min(population_size, num_simulations)
 
     log.info(
-        f"""Running ABC-SMC-pyabc with {num_simulations - num_pilot_simulations}
-    simulations"""
+        """Running ABC-SMC-pyabc with {} simulations""".format(
+            num_simulations - num_pilot_simulations
+        )
     )
     kwargs["models"] = [sumstats_simulator]
 
     # Run pyabc with fixed budget.
     particles, weights = run_pyabc(
+        task,
         db,
         num_simulations=num_simulations - num_pilot_simulations,
         observation=observation,
         pyabc_kwargs=kwargs,
-        prior=task.get_prior(),
+        use_last_pop_samples=use_last_pop_samples,
+        distance_str=distance_str,
+        batch_size=batch_size,
     )
 
     if lra:

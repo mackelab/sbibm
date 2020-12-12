@@ -1,7 +1,7 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import torch
 from sbi.utils.plot import pairplot

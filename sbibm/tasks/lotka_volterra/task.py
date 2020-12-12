@@ -47,47 +47,16 @@ class LotkaVolterra(Task):
 
         # Observation seeds to use when generating ground truth
         observation_seeds = [
-            1000000,  # observation 1
-            1000001,  # observation 2
-            1000002,  # observation 3
+            1000020,  # observation 1
+            1000030,  # observation 2
+            1000034,  # observation 3
             1000013,  # observation 4
             1000004,  # observation 5
             1000011,  # observation 6
             1000012,  # observation 7
-            1000007,  # observation 8
-            1000008,  # observation 9
+            1000039,  # observation 8
+            1000041,  # observation 9
             1000009,  # observation 10
-            1000020,
-            1000021,
-            1000022,
-            1000023,
-            1000024,
-            1000025,
-            1000026,
-            1000027,
-            1000028,
-            1000029,
-            1000030,
-            1000031,
-            1000032,
-            1000033,
-            1000034,
-            1000035,
-            1000036,
-            1000037,
-            1000038,
-            1000039,
-            1000040,
-            1000041,
-            1000042,
-            1000043,
-            1000044,
-            1000045,
-            1000046,
-            1000047,
-            1000048,
-            1000049,
-            1000050,
         ]
 
         super().__init__(
@@ -177,8 +146,16 @@ class LotkaVolterra(Task):
                 us.append(u.reshape(1, 2, -1))
             us = torch.cat(us).float()  # num_parameters x 2 x (days/saveat + 1)
 
-            idx_contains_nan = torch.where(torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
-            idx_contains_no_nan = torch.where(~torch.isnan(us.reshape(num_samples, -1)).any(axis=1))[0]  # noqa
+            idx_contains_nan = torch.where(
+                torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
+            )[
+                0
+            ]  # noqa
+            idx_contains_no_nan = torch.where(
+                ~torch.isnan(us.reshape(num_samples, -1)).any(axis=1)
+            )[
+                0
+            ]  # noqa
 
             if self.summary is None:
                 return us

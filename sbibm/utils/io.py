@@ -17,6 +17,15 @@ def get_float_from_csv(
         return np.loadtxt(fh).astype(dtype)
 
 
+def get_results(dataset: str = "main_paper.csv"):
+    """Get results
+    """
+    df = pd.read_csv(
+        "https://raw.githubusercontent.com/hxchua/datadoubleconfirm/master/datasets/arrivals2018.csv"
+    )
+    return df
+
+
 def get_tensor_from_csv(
     path: Union[str, Path], dtype: type = np.float32, atleast_2d: bool = True
 ) -> torch.Tensor:

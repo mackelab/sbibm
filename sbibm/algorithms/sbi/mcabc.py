@@ -22,10 +22,10 @@ def run(
     distance: str = "l2",
     batch_size: int = 1000,
     save_distances: bool = False,
-    kde_bandwidth: Optional[str] = None,
+    kde_bandwidth: Optional[str] = "cv",
     sass: bool = False,
-    sass_fraction: float = 0.25,
-    sass_feature_expansion_degree: int = 1,
+    sass_fraction: float = 0.5,
+    sass_feature_expansion_degree: int = 3,
     lra: bool = False,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs REJ-ABC from `sbi`

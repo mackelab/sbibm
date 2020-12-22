@@ -63,6 +63,16 @@ def get_task(task_name: str, *args: Any, **kwargs: Any) -> Task:
 
         return TwoMoons(*args, **kwargs)
 
+    elif task_name == "poisson_glm":
+        from sbibm.tasks.poisson_glm.task import PoissonGLM
+
+        return PoissonGLM(*args, **kwargs)
+
+    elif task_name == "connectomics_glm": 
+        from sbibm.tasks.connectomics_glm.task import ConnectomicsGLM
+
+        return ConnectomicsGLM(*args, **kwargs)
+
     else:
         raise NotImplementedError()
 

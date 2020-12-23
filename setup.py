@@ -114,14 +114,7 @@ setup(
     python_requires=REQUIRES_PYTHON,
     url=URL,
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
-    entry_points={
-        "console_scripts": [
-            "sbibm-run = experiments.run:cli",
-            "sbibm-df = sbibm.utils.analysis:compile_df_cli",
-            "sbibm-figs = sbibm.visualisation.figures:figs",
-            "sbibm-web = website.app:main",
-        ],
-    },
+    entry_points={},
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,

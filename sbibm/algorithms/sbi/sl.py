@@ -1,6 +1,6 @@
 import logging
 import math
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import torch
 import torch.nn as nn

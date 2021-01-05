@@ -8,34 +8,6 @@ from sbibm.algorithms.pytorch.utils.proposal import get_proposal
 from sbibm.metrics.c2st import c2st
 
 
-@pytest.mark.parametrize(
-    "task_name",
-    [(task_name) for task_name in ["gaussian_linear", "gaussian_linear_uniform"]],
-)
-def test_sir(
-    task_name,
-    num_observation=1,
-    num_samples=10000,
-    num_simulations=1_00_000_000,
-):
-    task = sbibm.get_task(task_name)
-
-    samples = run(
-        task=task,
-        num_observation=num_observation,
-        num_simulations=num_simulations,
-        num_samples=num_samples,
-    )
-
-    reference_samples = task.get_reference_posterior_samples(
-        num_observation=num_observation
-    )
-
-    acc = c2st(samples, reference_samples[:num_samples, :])
-
-    assert torch.abs(acc - 0.5) < 0.01
-
-
 def test_sir_with_proposal(
     plt,
     task_name="gaussian_linear_uniform",

@@ -40,16 +40,16 @@ class PoissonGLM(Task):
         # differentdim_parameters.
 
         observation_seeds = [
-            1000003,
-            1000007,
-            1000015,
+            1000001,
+            1000006,
+            1000016,
+            1000019,
             1000022,
-            1000023,
-            1000025,
-            1000030,
+            1000028,
+            1000033,
+            1000052,
             1000054,
-            1000059,
-            1000066,
+            1000057,
         ]
 
         super().__init__(
@@ -71,17 +71,17 @@ class PoissonGLM(Task):
             (self.dim_data, self.dim_parameters)
         ), "Design matrix must have task shape."
 
-        low, high = self._get_prior_bounds()
+        loc, cov = self._get_prior_bounds()
 
         assert self.dim_parameters == 3, "This is hard coded for parameter dim=3."
         self.prior_params = {
-            "low": low,
-            "high": high,
+            "loc": loc,
+            "cov": cov,
         }
 
-        self.prior_dist = pdist.Uniform(
-            low=self.prior_params["low"], high=self.prior_params["high"]
-        ).to_event(1)
+        self.prior_dist = pdist.MultivariateNormal(
+            loc=self.prior_params["loc"], covariance_matrix=self.prior_params["cov"],
+        )
 
     def get_prior(self) -> Callable:
         def prior(num_samples=1):
@@ -102,7 +102,12 @@ class PoissonGLM(Task):
         """
 
         def simulator(parameters):
-            rate = torch.exp(self.design_matrix.mm(parameters.T)).T
+            log_dso = (
+                parameters[:, :1] * self.design_matrix[:, 0]
+                + parameters[:, 1:2] * self.design_matrix[:, 1]
+                - parameters[:, 2:3] * self.design_matrix[:, 2]
+            )
+            rate = torch.exp(log_dso)
             data = pyro.sample(
                 "data", pdist.Poisson(rate=rate.clamp(0, self.upper_rate_bound))
             )
@@ -181,14 +186,10 @@ class PoissonGLM(Task):
     def _get_prior_bounds(self,) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return prior bounds based on dimensionality of theta."""
 
-        low = torch.tensor(
-            [0.01, 0.01, -3.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
-        )[: self.dim_parameters]
-        high = torch.tensor([3.0, 3.0, -0.01, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])[
-            : self.dim_parameters
-        ]
+        loc = torch.ones(self.dim_parameters)
+        cov = torch.eye(self.dim_parameters)
 
-        return low, high
+        return loc, cov
 
     def _sample_reference_posterior(
         self,

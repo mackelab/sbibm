@@ -29,6 +29,9 @@ def run(
     automatic_transforms_enabled: bool = False,
     z_score_x: bool = True,
     z_score_theta: bool = True,
+    learning_rate: float = 5e-4,
+    validation_fraction: float = 0.1,
+    stop_after_epochs: int = 20,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs (S)NPE from `sbi`
 
@@ -86,6 +89,7 @@ def run(
         hidden_features=hidden_features,
         z_score_x=z_score_x,
         z_score_theta=z_score_theta,
+        num_components=num_atoms,
     )
 
     inference_method = inference.SNPE_C(prior, density_estimator=density_estimator_fun)
@@ -109,9 +113,12 @@ def run(
             discard_prior_samples=False,
             use_combined_loss=False,
             show_train_summary=True,
+            learning_rate=learning_rate,
+            validation_fraction=validation_fraction,
+            stop_after_epochs=stop_after_epochs,
         )
         posterior = inference_method.build_posterior(
-            density_estimator, sample_with_mcmc=False
+            density_estimator, sample_with_mcmc=False,
         )
         proposal = posterior.set_default_x(observation)
         posteriors.append(posterior)

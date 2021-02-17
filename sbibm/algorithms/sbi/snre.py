@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 from sbi import inference as inference
 from sbi.utils.get_nn_models import classifier_nn
+from torch import nn
 
 from sbibm.algorithms.sbi.utils import (
     wrap_posterior,
@@ -39,6 +40,8 @@ def run(
     z_score_x: bool = True,
     z_score_theta: bool = True,
     variant: str = "B",
+    embed_x: bool = False,
+    stop_after_epochs: int = 20,
 ) -> Tuple[torch.Tensor, int, Optional[torch.Tensor]]:
     """Runs (S)NRE from `sbi`
 
@@ -99,13 +102,21 @@ def run(
         hidden_features=hidden_features,
         z_score_x=z_score_x,
         z_score_theta=z_score_theta,
+        embedding_net_x=nn.Sequential(
+            nn.Linear(task.dim_data, 10), nn.ReLU(), nn.Linear(10, task.dim_data),
+        )
+        if embed_x
+        else nn.Identity(),
     )
     if variant == "A":
         inference_class = inference.SNRE_A
         inference_method_kwargs = {}
     elif variant == "B":
         inference_class = inference.SNRE_B
-        inference_method_kwargs = {"num_atoms": num_atoms}
+        inference_method_kwargs = {
+            "num_atoms": num_atoms,
+            "stop_after_epochs": 100,
+        }
     else:
         raise NotImplementedError
 

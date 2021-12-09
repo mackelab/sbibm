@@ -98,7 +98,7 @@ class DDM(Task):
         if self.dim_parameters == 2:
 
             def simulator(parameters):
-                v, a = parameters.numpy().T
+                v, a = parameters.detach().numpy().T
                 rts, choices = self.ddm.simulate(
                     v,
                     a,
@@ -112,7 +112,7 @@ class DDM(Task):
         elif self.dim_parameters == 3:
 
             def simulator(parameters):
-                v, a, w = parameters.numpy().T
+                v, a, w = parameters.detach().numpy().T
                 # using boundary separation a and offset w
                 # pass negative lower bound as required by DiffModels.
                 bl = -w * a
@@ -132,7 +132,7 @@ class DDM(Task):
         elif self.dim_parameters == 4:
 
             def simulator(parameters):
-                v, a, w, ndt = parameters.numpy().T
+                v, a, w, ndt = parameters.detach().numpy().T
                 # using boundary separation a and offset w
                 # pass negative lower bound as required by DiffModels.
                 bl = -w * a
@@ -390,4 +390,4 @@ class DDM(Task):
 
 if __name__ == "__main__":
     task = DDM(num_trials=100, dim_parameters=4)
-    task._setup(n_jobs=1)
+    task._setup(n_jobs=-1)

@@ -101,7 +101,7 @@ def get_log_prob_fn(
             transforms[name] = dist.transforms.identity_transform
         # Reinterpret batch dimensions of transform to get log abs det jac summed over
         # parameter dimensions.
-        if not isinstance(transforms[name], IndependentTransform):
+        if transforms[name].event_dim == 0:
             transforms[name] = IndependentTransform(
                 transforms[name], reinterpreted_batch_ndims=1
             )

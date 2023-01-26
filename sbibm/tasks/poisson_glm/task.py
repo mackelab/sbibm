@@ -20,15 +20,15 @@ class PoissonGLM(Task):
 
         A Poisson GLM model for generation of synapse counts given structural features
         of rat sensory cortex encoded in a design matrix.
-        
+
         The structural features are given by a design matrix. The dimensions of the
         design matrix are determined by the dimensionality of the parameters (number
         of structural features), and the dimensionality of the data (number of neuron-
         neuron-voxel pairs for which synapse counts are observed). Currently, the
         design matrix supports up to 11 features, and up to 100 rows. The number of
         rows can easily scaled to up to 130 million.
-        
-        Args: 
+
+        Args:
             upper_rate_bound: Upper bound for Poisson rates. For parameters that result
             in larger rates the simulator will return NaN data.
         """
@@ -80,7 +80,8 @@ class PoissonGLM(Task):
         }
 
         self.prior_dist = pdist.MultivariateNormal(
-            loc=self.prior_params["loc"], covariance_matrix=self.prior_params["cov"],
+            loc=self.prior_params["loc"],
+            covariance_matrix=self.prior_params["cov"],
         )
 
     def get_prior(self) -> Callable:
@@ -132,29 +133,27 @@ class PoissonGLM(Task):
             subc_bifurcations_axon,
             subc_distance_dendrites_center_of_mass,
             subc_distance_primary_bifurcation,
-                
+
         Returns:
             Design matrix with dimensions (self.dim_data, self.dim_parameters)
         """
         with open(
-            join(
-                Path(__file__).parent, "files/design_matrix_dso_sorted_100_by_11.pickle"
+            Path(__file__).parent.joinpath(
+                "files", "design_matrix_dso_sorted_100_by_11.pickle"
             ),
             "rb",
         ) as fh:
             design_matrix = pickle.load(fh)["design_matrix"]
 
         with open(
-            join(
-                Path(__file__).parent,
-                "files/features_selection_D2_highestOverlap_seed10_dim10.npz",
+            Path(__file__).parent.joinpath(
+                "files", "features_selection_D2_highestOverlap_seed10_dim10.npz"
             ),
             "rb",
         ) as fh:
             old_design_matrix = torch.as_tensor(
                 pickle.load(fh)["features"], dtype=torch.float32
             )
-
         num_rows, num_features = design_matrix.shape
         assert (
             self.dim_parameters <= num_features
@@ -183,7 +182,9 @@ class PoissonGLM(Task):
 
         return torch.cat(combined_design_matrix)
 
-    def _get_prior_bounds(self,) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _get_prior_bounds(
+        self,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return prior bounds based on dimensionality of theta."""
 
         loc = torch.ones(self.dim_parameters)
